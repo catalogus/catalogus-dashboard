@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Image,
@@ -31,8 +33,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 
-const navItems = [
+type NavItem = {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  href: string;
+  iconColor: string;
+  badge?: number;
+};
+
+const adminNavItems: NavItem[] = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/", iconColor: "text-primary" },
   { title: "Slides do Hero", icon: Image, href: "/hero-slides", iconColor: "text-violet-500" },
   { title: "Artigos", icon: FileText, href: "/artigos", iconColor: "text-blue-500" },
@@ -44,11 +55,70 @@ const navItems = [
   { title: "Reivindicações de Autor", icon: UserCheck, href: "/reivindicacoes", iconColor: "text-sky-500" },
 ];
 
+const authorNavItems: NavItem[] = [
+  { title: "Dashboard", icon: LayoutDashboard, href: "/", iconColor: "text-primary" },
+  { title: "Artigos", icon: FileText, href: "/artigos", iconColor: "text-blue-500" },
+  { title: "Livros", icon: Book, href: "/livros", iconColor: "text-amber-500" },
+  { title: "Pedidos", icon: ShoppingCart, href: "/pedidos", iconColor: "text-orange-500" },
+];
+
+const customerNavItems: NavItem[] = [
+  { title: "Dashboard", icon: LayoutDashboard, href: "/", iconColor: "text-primary" },
+  { title: "Pedidos", icon: ShoppingCart, href: "/pedidos", iconColor: "text-orange-500" },
+];
+
+type UserRole = "admin" | "author" | "customer";
+
 export function DashboardSidebar(
   props: React.ComponentProps<typeof Sidebar>
 ) {
   const location = useLocation();
   const { user, signOut } = useAuth();
+
+  const profileQuery = useQuery({
+    queryKey: ["sidebar-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+
+  const pendingClaimsQuery = useQuery({
+    queryKey: ["sidebar-pending-claims"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("authors")
+        .select("id", { count: "exact", head: true })
+        .eq("claim_status", "pending");
+
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: profileQuery.data?.role === "admin",
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const userRole = ((profileQuery.data?.role || user?.user_metadata?.role || "admin") as UserRole);
+  const navItems = useMemo(() => {
+    if (userRole === "author") return authorNavItems;
+    if (userRole === "customer") return customerNavItems;
+
+    return adminNavItems.map((item) => {
+      if (item.href === "/reivindicacoes") {
+        return { ...item, badge: pendingClaimsQuery.data || 0 };
+      }
+      return item;
+    });
+  }, [userRole, pendingClaimsQuery.data]);
   
   const userMetadata = user?.user_metadata as { name?: string; avatar_url?: string } | undefined;
   const userName = userMetadata?.name || user?.email?.split('@')[0] || 'Admin';
@@ -77,7 +147,9 @@ export function DashboardSidebar(
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
-                const isActive = location.pathname === item.href;
+                const isActive =
+                  location.pathname === item.href ||
+                  location.pathname.startsWith(`${item.href}/`);
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
@@ -88,6 +160,11 @@ export function DashboardSidebar(
                       <Link to={item.href}>
                         <item.icon className={cn("size-4 shrink-0", item.iconColor)} />
                         <span className="text-sm">{item.title}</span>
+                        {item.badge !== undefined && item.badge > 0 && (
+                          <span className="ml-auto rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                            {item.badge}
+                          </span>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

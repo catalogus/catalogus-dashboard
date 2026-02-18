@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { 
   HeroSlide, HeroSlideInsert, HeroSlideUpdate, 
-  Book, BookInsert, BookUpdate, 
+  BookInsert, BookUpdate, 
   Author, AuthorInsert, AuthorUpdate,
   Order, OrderUpdate,
   Profile, ProfileInsert, ProfileUpdate,
@@ -78,9 +78,25 @@ export function useDeleteHeroSlide() {
   })
 }
 
-export function usePosts(status?: string, page: number = 1, pageSize: number = 20, search?: string) {
+export function usePosts({
+  status,
+  page = 1,
+  pageSize = 20,
+  search,
+  categoryId,
+  language = 'all',
+  sortBy = 'newest',
+}: {
+  status?: string
+  page?: number
+  pageSize?: number
+  search?: string
+  categoryId?: string
+  language?: 'all' | 'pt' | 'en'
+  sortBy?: 'newest' | 'oldest' | 'title_asc' | 'title_desc' | 'featured'
+}) {
   return useQuery({
-    queryKey: ['posts', status, page, pageSize, search],
+    queryKey: ['posts', status, page, pageSize, search, categoryId, language, sortBy],
     queryFn: async () => {
       const from = (page - 1) * pageSize
       const to = from + pageSize - 1
@@ -88,7 +104,6 @@ export function usePosts(status?: string, page: number = 1, pageSize: number = 2
       let query = supabase
         .from('posts')
         .select('*, profiles:author_id(name, photo_url)', { count: 'exact' })
-        .order('created_at', { ascending: false })
         .range(from, to)
       
       if (status && status !== 'all') {
@@ -97,6 +112,42 @@ export function usePosts(status?: string, page: number = 1, pageSize: number = 2
       
       if (search) {
         query = query.ilike('title', `%${search}%`)
+      }
+
+      if (language && language !== 'all') {
+        query = query.eq('language', language)
+      }
+
+      if (categoryId && categoryId !== 'all') {
+        const { data: postCategoryRows, error: mapError } = await supabase
+          .from('post_categories_map')
+          .select('post_id')
+          .eq('category_id', categoryId)
+
+        if (mapError) throw mapError
+
+        const postIds = (postCategoryRows || []).map((row: any) => row.post_id)
+        if (postIds.length === 0) {
+          return { data: [], totalCount: 0, totalPages: 0 }
+        }
+        query = query.in('id', postIds)
+      }
+
+      switch (sortBy) {
+        case 'oldest':
+          query = query.order('created_at', { ascending: true })
+          break
+        case 'title_asc':
+          query = query.order('title', { ascending: true })
+          break
+        case 'title_desc':
+          query = query.order('title', { ascending: false })
+          break
+        case 'featured':
+          query = query.order('featured', { ascending: false }).order('created_at', { ascending: false })
+          break
+        default:
+          query = query.order('created_at', { ascending: false })
       }
       
       const { data, error, count } = await query
@@ -134,6 +185,68 @@ export function usePostStats() {
       if (e4) throw e4
       
       return { published: published || 0, draft: draft || 0, trash: trash || 0, total: total || 0 }
+    },
+  })
+}
+
+export function usePostStatusCountsWithFilters({
+  search,
+  categoryId,
+  language = 'all',
+}: {
+  search?: string
+  categoryId?: string
+  language?: 'all' | 'pt' | 'en'
+}) {
+  return useQuery({
+    queryKey: ['post-status-counts-filtered', search, categoryId, language],
+    queryFn: async () => {
+      let filteredPostIds: string[] | undefined
+
+      if (categoryId && categoryId !== 'all') {
+        const { data: postCategoryRows, error: mapError } = await supabase
+          .from('post_categories_map')
+          .select('post_id')
+          .eq('category_id', categoryId)
+
+        if (mapError) throw mapError
+
+        filteredPostIds = (postCategoryRows || []).map((row: any) => row.post_id)
+        if (filteredPostIds.length === 0) {
+          return { published: 0, draft: 0, trash: 0 }
+        }
+      }
+
+      const countForStatus = async (status: 'published' | 'draft' | 'trash') => {
+        let query = supabase
+          .from('posts')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', status)
+
+        if (search) {
+          query = query.ilike('title', `%${search}%`)
+        }
+
+        if (language && language !== 'all') {
+          query = query.eq('language', language)
+        }
+
+        if (filteredPostIds) {
+          query = query.in('id', filteredPostIds)
+        }
+
+        const { count, error } = await query
+        if (error) throw error
+        return count || 0
+      }
+
+      const [published, draft, trash] = await Promise.all([
+        countForStatus('published'),
+        countForStatus('draft'),
+        countForStatus('trash'),
+      ])
+
+      return { published, draft, trash }
     },
   })
 }
@@ -281,6 +394,78 @@ export function useBulkUpdatePosts() {
   })
 }
 
+export function useMovePostsToTrash() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ ids, fromStatus }: { ids: string[]; fromStatus: string }) => {
+      const { data, error } = await supabase
+        .from('posts')
+        .update({ status: 'trash' as any, previous_status: fromStatus as any })
+        .in('id', ids)
+        .select('id')
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+    },
+  })
+}
+
+export function useRestorePostsFromTrash() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { data: selectedPosts, error: fetchError } = await supabase
+        .from('posts')
+        .select('id, previous_status')
+        .in('id', ids)
+
+      if (fetchError) throw fetchError
+
+      const grouped = (selectedPosts || []).reduce((acc: Record<string, string[]>, post: any) => {
+        const nextStatus = post.previous_status || 'draft'
+        if (!acc[nextStatus]) acc[nextStatus] = []
+        acc[nextStatus].push(post.id)
+        return acc
+      }, {})
+
+      for (const [status, postIds] of Object.entries(grouped)) {
+        const { error } = await supabase
+          .from('posts')
+          .update({ status: status as any, previous_status: null })
+          .in('id', postIds)
+        if (error) throw error
+      }
+
+      return selectedPosts
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+    },
+  })
+}
+
+export function useDeletePostsPermanently() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .in('id', ids)
+      if (error) throw error
+      return ids
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+    },
+  })
+}
+
 export function useTranslatePost() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -313,7 +498,7 @@ export function useBooks(page: number = 1, pageSize: number = 10, search?: strin
       
       let query = supabase
         .from('books')
-        .select('*', { count: 'exact' })
+        .select('*, authors:authors_books(author_id, authors(id, name, photo_url))', { count: 'exact' })
         .order('featured', { ascending: false })
         .order('created_at', { ascending: false })
         .range(from, to)
@@ -324,8 +509,23 @@ export function useBooks(page: number = 1, pageSize: number = 10, search?: strin
       
       const { data, error, count } = await query
       if (error) throw error
-      return { data: data as Book[], totalCount: count || 0, totalPages: Math.ceil((count || 0) / pageSize) }
+      return { data: (data || []) as any[], totalCount: count || 0, totalPages: Math.ceil((count || 0) / pageSize) }
     },
+  })
+}
+
+export function useBookAuthorsList() {
+  return useQuery({
+    queryKey: ['book-authors-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('authors')
+        .select('id, name, photo_url')
+        .order('name', { ascending: true })
+      if (error) throw error
+      return data as { id: string; name: string; photo_url: string | null }[]
+    },
+    staleTime: 60_000,
   })
 }
 
@@ -417,11 +617,87 @@ export function useDeleteBook() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
+      const { count, error: countError } = await supabase
+        .from('order_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('book_id', id)
+      if (countError) throw countError
+
+      if ((count || 0) > 0) {
+        const { error: archiveError } = await supabase
+          .from('books')
+          .update({ is_active: false, featured: false })
+          .eq('id', id)
+        if (archiveError) throw archiveError
+        return { archived: true }
+      }
+
       const { error } = await supabase
         .from('books')
         .delete()
         .eq('id', id)
       if (error) throw error
+      return { archived: false }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['books'] })
+      queryClient.invalidateQueries({ queryKey: ['book-stats'] })
+    },
+  })
+}
+
+export function useToggleBookActive() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { data, error } = await supabase
+        .from('books')
+        .update({ is_active })
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['books'] })
+      queryClient.invalidateQueries({ queryKey: ['book-stats'] })
+    },
+  })
+}
+
+export function useToggleBookFeatured() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, featured }: { id: string; featured: boolean }) => {
+      const { data, error } = await supabase
+        .from('books')
+        .update({ featured })
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['books'] })
+      queryClient.invalidateQueries({ queryKey: ['book-stats'] })
+    },
+  })
+}
+
+export function useUpdateBookStock() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, stock }: { id: string; stock: number }) => {
+      const { data, error } = await supabase
+        .from('books')
+        .update({ stock })
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['books'] })
@@ -881,16 +1157,26 @@ export function useDeletePublication() {
 }
 
 export function useDashboardMetrics(startDate?: string, endDate?: string) {
+  const today = new Date().toISOString().slice(0, 10)
+  const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10)
+
   return useQuery({
     queryKey: ['dashboard-metrics', startDate, endDate],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_admin_dashboard_metrics', {
-        p_start_date: startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        p_end_date: endDate || new Date().toISOString(),
+        p_start_date: startDate || defaultStart,
+        p_end_date: endDate || today,
+        p_timezone: 'Africa/Maputo',
+        p_low_stock_threshold: 5,
+        p_top_books_limit: 5,
+        p_recent_orders_limit: 6,
       })
       if (error) throw error
       return data
     },
+    staleTime: 60_000,
   })
 }
 
