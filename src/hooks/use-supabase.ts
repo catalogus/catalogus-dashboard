@@ -7,8 +7,7 @@ import type {
   Order, OrderUpdate,
   Profile, ProfileInsert, ProfileUpdate,
   Publication, PublicationInsert, PublicationUpdate,
-  PostInsert, PostUpdate,
-  AuthorClaimUpdate
+  PostInsert, PostUpdate
 } from '@/lib/supabase'
 
 export function useHeroSlides() {
@@ -1014,16 +1013,60 @@ export function useDeleteProfile() {
   })
 }
 
-export function useAuthorClaims() {
+export function useAuthorClaims(filter: 'all' | 'pending' | 'approved' | 'rejected' = 'all') {
   return useQuery({
-    queryKey: ['author-claims'],
+    queryKey: ['author-claims', filter],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('author_claims')
-        .select('*, authors(name, photo_url), profiles(name, photo_url)')
+      let query = supabase
+        .from('authors')
+        .select('id, name, photo_url, wp_slug, profile_id, claim_status, claimed_at, claim_reviewed_at, claim_reviewed_by, profiles!authors_profile_id_fkey(id, name, email, status, photo_url)')
+        .not('claim_status', 'eq', 'unclaimed')
         .order('claimed_at', { ascending: false })
+
+      if (filter !== 'all') {
+        query = query.eq('claim_status', filter)
+      }
+
+      const { data: authorsData, error } = await query
       if (error) throw error
-      return data
+
+      const claimsWithNotes = await Promise.all(
+        (authorsData ?? []).map(async (author: any) => {
+          if (
+            author.profile_id &&
+            (author.claim_status === 'pending' || author.claim_status === 'rejected')
+          ) {
+            const { data: claimData } = await supabase
+              .from('author_claims')
+              .select('id, notes, status, reviewed_at, reviewed_by')
+              .eq('author_id', author.id)
+              .eq('profile_id', author.profile_id)
+              .eq('status', author.claim_status)
+              .order('claimed_at', { ascending: false })
+              .maybeSingle()
+
+            return {
+              ...author,
+              claim_id: claimData?.id ?? null,
+              notes: claimData?.notes ?? null,
+              audit_status: claimData?.status ?? null,
+              audit_reviewed_at: claimData?.reviewed_at ?? null,
+              audit_reviewed_by: claimData?.reviewed_by ?? null,
+            }
+          }
+
+          return {
+            ...author,
+            claim_id: null,
+            notes: null,
+            audit_status: null,
+            audit_reviewed_at: null,
+            audit_reviewed_by: null,
+          }
+        }),
+      )
+
+      return claimsWithNotes
     },
   })
 }
@@ -1033,36 +1076,80 @@ export function useAuthorClaimStats() {
     queryKey: ['author-claim-stats'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('author_claims')
-        .select('status')
+        .from('authors')
+        .select('claim_status')
+        .not('claim_status', 'eq', 'unclaimed')
       if (error) throw error
       
       return {
         total: data?.length || 0,
-        pending: data?.filter((c: any) => c.status === 'pending').length || 0,
-        approved: data?.filter((c: any) => c.status === 'approved').length || 0,
-        rejected: data?.filter((c: any) => c.status === 'rejected').length || 0,
+        pending: data?.filter((c: any) => c.claim_status === 'pending').length || 0,
+        approved: data?.filter((c: any) => c.claim_status === 'approved').length || 0,
+        rejected: data?.filter((c: any) => c.claim_status === 'rejected').length || 0,
       }
     },
   })
 }
 
-export function useUpdateAuthorClaim() {
+export function useReviewAuthorClaim() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string } & AuthorClaimUpdate) => {
-      const { data, error } = await supabase
+    mutationFn: async ({
+      authorId,
+      profileId,
+      status,
+      reviewerId,
+    }: {
+      authorId: string
+      profileId: string
+      status: 'approved' | 'rejected'
+      reviewerId?: string | null
+    }) => {
+      const reviewedAt = new Date().toISOString()
+
+      const { error: authorError } = await supabase
+        .from('authors')
+        .update({
+          claim_status: status,
+          claim_reviewed_at: reviewedAt,
+          claim_reviewed_by: reviewerId ?? null,
+        } as any)
+        .eq('id', authorId)
+
+      if (authorError) throw authorError
+
+      if (status === 'approved') {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ status: 'approved' as any })
+          .eq('id', profileId)
+          .eq('status', 'pending')
+
+        if (profileError) throw profileError
+      }
+
+      const { error: auditError } = await supabase
         .from('author_claims')
-        .update(updates as any)
-        .eq('id', id)
-        .select()
-        .single()
-      if (error) throw error
-      return data
+        .update({
+          status,
+          reviewed_at: reviewedAt,
+          reviewed_by: reviewerId ?? null,
+        } as any)
+        .eq('author_id', authorId)
+        .eq('profile_id', profileId)
+        .eq('status', 'pending')
+
+      if (auditError) throw auditError
+
+      return { authorId, status }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['author-claims'] })
       queryClient.invalidateQueries({ queryKey: ['author-claim-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['authors'] })
+      queryClient.invalidateQueries({ queryKey: ['author-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: ['profile-stats'] })
     },
   })
 }

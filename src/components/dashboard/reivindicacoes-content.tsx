@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -10,16 +10,20 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useAuthorClaims, useAuthorClaimStats, useUpdateAuthorClaim } from "@/hooks/use-supabase";
+import { Button } from "@/components/ui/button";
+import { useAuthorClaims, useAuthorClaimStats, useReviewAuthorClaim } from "@/hooks/use-supabase";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 
 type TabStatus = "all" | "pending" | "approved" | "rejected";
 
 export function ReivindicacoesContent() {
   const [activeTab, setActiveTab] = useState<TabStatus>("all");
-  const { data: claims, isLoading } = useAuthorClaims();
+  const { user } = useAuth();
+  const { data: claims, isLoading } = useAuthorClaims(activeTab);
   const { data: stats } = useAuthorClaimStats();
-  const updateMutation = useUpdateAuthorClaim();
+  const reviewMutation = useReviewAuthorClaim();
 
   const getClaimStatusBadge = (status: string) => {
     switch (status) {
@@ -42,14 +46,25 @@ export function ReivindicacoesContent() {
     });
   };
 
-  const handleStatusChange = async (id: string, newStatus: 'approved' | 'rejected') => {
-    await updateMutation.mutateAsync({ id, status: newStatus });
-  };
+  const handleStatusChange = async (claim: any, newStatus: 'approved' | 'rejected') => {
+    if (!claim.profile_id) {
+      toast.error('Esta reivindicação não possui perfil associado.');
+      return;
+    }
 
-  const filteredClaims = claims?.filter((item) => {
-    if (activeTab === "all") return true;
-    return item.status === activeTab;
-  });
+    try {
+      await reviewMutation.mutateAsync({
+        authorId: claim.id,
+        profileId: claim.profile_id,
+        status: newStatus,
+        reviewerId: user?.id || null,
+      });
+      toast.success(newStatus === 'approved' ? 'Reivindicação aprovada' : 'Reivindicação rejeitada');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao rever reivindicação';
+      toast.error(message);
+    }
+  };
 
   const tabs = [
     { id: "pending" as TabStatus, label: "Pendente", count: stats?.pending || 0 },
@@ -111,67 +126,110 @@ export function ReivindicacoesContent() {
               <TableRow className="hover:bg-transparent">
                 <TableHead>Nome do Autor</TableHead>
                 <TableHead className="w-[150px]">Reivindicado Por</TableHead>
+                <TableHead className="w-[180px]">Email</TableHead>
                 <TableHead className="w-[150px]">Info de Verificação</TableHead>
+                <TableHead className="w-[120px]">Estado do Perfil</TableHead>
                 <TableHead className="w-[120px]">Data de Reivindicação</TableHead>
                 <TableHead className="w-[120px]">Estado</TableHead>
-                <TableHead className="w-[100px]">Acções</TableHead>
+                <TableHead className="w-[220px]">Acções</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredClaims?.map((claim) => (
+              {claims?.map((claim: any) => (
                 <TableRow key={claim.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="size-10">
-                        <AvatarImage src={(claim.authors as any)?.photo_url || undefined} alt={(claim.authors as any)?.name} />
-                        <AvatarFallback>{(claim.authors as any)?.name?.charAt(0) || '?'}</AvatarFallback>
+                        <AvatarImage src={claim.photo_url || undefined} alt={claim.name} />
+                        <AvatarFallback>{claim.name?.charAt(0) || '?'}</AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col">
-                        <span className="font-medium">{(claim.authors as any)?.name || 'Autor desconhecido'}</span>
+                        <span className="font-medium">{claim.name || 'Autor desconhecido'}</span>
+                        {(claim.wp_slug || claim.id) && (
+                          <a
+                            href={`/autor/${claim.wp_slug || claim.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
+                          >
+                            Ver página pública
+                            <ExternalLink className="size-3" />
+                          </a>
+                        )}
                       </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {(claim.profiles as any)?.name || '—'}
                   </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {(claim.profiles as any)?.email || '—'}
+                  </TableCell>
                   <TableCell>
                     {claim.notes ? (
-                      <button className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
-                        <ChevronDown className="size-3" />
-                        Ver notas
-                      </button>
+                      <details className="text-sm">
+                        <summary className="cursor-pointer text-blue-600 hover:underline inline-flex items-center gap-1">
+                          <ChevronDown className="size-3" />
+                          Ver notas
+                        </summary>
+                        <div className="mt-2 rounded-md border bg-muted/40 p-2 text-xs whitespace-pre-wrap">
+                          {claim.notes}
+                        </div>
+                      </details>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {(claim.profiles as any)?.status ? (
+                      <Badge
+                        className={cn(
+                          (claim.profiles as any).status === 'approved' && 'bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/20',
+                          (claim.profiles as any).status === 'pending' && 'bg-amber-500/15 text-amber-600 hover:bg-amber-500/20',
+                          (claim.profiles as any).status === 'rejected' && 'bg-red-500/15 text-red-600 hover:bg-red-500/20',
+                        )}
+                      >
+                        {(claim.profiles as any).status}
+                      </Badge>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{formatDate(claim.claimed_at)}</TableCell>
-                  <TableCell>{getClaimStatusBadge(claim.status)}</TableCell>
+                  <TableCell>{getClaimStatusBadge(claim.claim_status)}</TableCell>
                   <TableCell>
-                    {claim.status === 'pending' && (
+                    {claim.claim_status === 'pending' && claim.profile_id && (
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => handleStatusChange(claim.id, 'approved')}
-                          className="text-xs text-emerald-600 hover:underline"
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStatusChange(claim, 'rejected')}
+                          disabled={reviewMutation.isPending}
+                          className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
-                          Aprovar
-                        </button>
-                        <button
-                          onClick={() => handleStatusChange(claim.id, 'rejected')}
-                          className="text-xs text-red-600 hover:underline"
-                        >
+                          <XCircle className="size-4 mr-1" />
                           Rejeitar
-                        </button>
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleStatusChange(claim, 'approved')}
+                          disabled={reviewMutation.isPending}
+                          className="h-8 bg-emerald-600 hover:bg-emerald-700"
+                        >
+                          <CheckCircle2 className="size-4 mr-1" />
+                          Aprovar
+                        </Button>
                       </div>
                     )}
-                    {claim.status !== 'pending' && (
+                    {(claim.claim_status !== 'pending' || !claim.profile_id) && (
                       <span className="text-sm text-muted-foreground">—</span>
                     )}
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredClaims?.length === 0 && (
+              {claims?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     Nenhuma reivindicação encontrada.
                   </TableCell>
                 </TableRow>
