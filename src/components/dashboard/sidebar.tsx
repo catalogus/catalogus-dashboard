@@ -9,14 +9,12 @@ import {
   Users,
   UserPen,
   UserCheck,
-  ChevronDown,
-  Check,
-  Plus,
-  User,
+  LogOut,
 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
@@ -29,11 +27,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/", iconColor: "text-primary" },
@@ -51,60 +48,27 @@ export function DashboardSidebar(
   props: React.ComponentProps<typeof Sidebar>
 ) {
   const location = useLocation();
+  const { user, signOut } = useAuth();
+  
+  const userMetadata = user?.user_metadata as { name?: string; avatar_url?: string } | undefined;
+  const userName = userMetadata?.name || user?.email?.split('@')[0] || 'Admin';
+  const userInitials = userName?.slice(0, 2).toUpperCase() || 'AD';
   
   return (
     <Sidebar collapsible="offcanvas" className="!border-r-0" {...props}>
       <SidebarHeader className="px-3 py-4">
-        <div className="flex items-center justify-between w-full">
-          <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center gap-2 outline-none w-full justify-start">
-              <div className="size-8 rounded-md bg-primary flex items-center justify-center text-primary-foreground shrink-0">
-                <span className="text-sm font-bold">T+</span>
-              </div>
-              <span className="font-semibold text-sidebar-foreground truncate">
-                Taskplus
-              </span>
-              <ChevronDown className="size-3 text-muted-foreground shrink-0" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuLabel className="text-muted-foreground text-xs font-medium">
-                Workspaces
-              </DropdownMenuLabel>
-              <DropdownMenuItem>
-                <div className="size-5 rounded bg-primary/20 mr-2 flex items-center justify-center text-xs font-bold text-primary">
-                  T+
-                </div>
-                Taskplus
-                <Check className="size-4 ml-auto" />
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <div className="size-5 rounded bg-blue-500/20 mr-2 flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-400">
-                  M
-                </div>
-                Marketing Team
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <div className="size-5 rounded bg-emerald-500/20 mr-2 flex items-center justify-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                  D
-                </div>
-                Design Studio
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Plus className="size-4 mr-2" />
-                Create Workspace
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User className="size-4 mr-2" />
-                Profile
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Avatar className="size-8 border-2 border-sidebar shrink-0">
-            <AvatarImage src="/ln.png" />
-            <AvatarFallback>LN</AvatarFallback>
-          </Avatar>
+        <div className="flex items-center gap-2">
+          <div className="size-8 rounded-md bg-amber-600 flex items-center justify-center text-white shrink-0">
+            <span className="text-sm font-bold">C</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="font-semibold text-sidebar-foreground text-sm">
+              Catalogus
+            </span>
+            <span className="text-xs text-muted-foreground">
+              CMS Admin
+            </span>
+          </div>
         </div>
       </SidebarHeader>
 
@@ -133,6 +97,33 @@ export function DashboardSidebar(
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter className="p-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 w-full p-2 rounded-md hover:bg-sidebar-accent transition-colors">
+              <Avatar className="size-8">
+                <AvatarImage src={userMetadata?.avatar_url} />
+                <AvatarFallback className="bg-amber-600 text-white text-xs">{userInitials}</AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col items-start flex-1 min-w-0">
+                <span className="text-sm font-medium text-sidebar-foreground truncate">
+                  {userName}
+                </span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {user?.email}
+                </span>
+              </div>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuItem onClick={signOut} className="text-red-600 focus:text-red-600">
+              <LogOut className="size-4 mr-2" />
+              Sair
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

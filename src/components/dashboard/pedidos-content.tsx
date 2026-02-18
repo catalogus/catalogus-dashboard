@@ -17,11 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { pedidos, pedidosStats } from "@/mock-data/pedidos";
+import { useOrders, useOrderStats, useUpdateOrder } from "@/hooks/use-supabase";
 
 export function PedidosContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const { data: orders, isLoading, error } = useOrders(selectedStatus);
+  const { data: stats } = useOrderStats();
+  const updateMutation = useUpdateOrder();
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -36,27 +39,53 @@ export function PedidosContent() {
       case "cancelled":
         return <Badge variant="secondary">cancelado</Badge>;
       default:
-        return null;
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  const filteredPedidos = pedidos.filter((pedido) => {
-    if (selectedStatus !== "all" && pedido.status !== selectedStatus) return false;
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('pt-MZ', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const handleStatusChange = async (orderId: string, newStatus: string) => {
+    await updateMutation.mutateAsync({ id: orderId, status: newStatus as any });
+  };
+
+  const filteredOrders = orders?.filter((order) => {
     if (searchQuery) {
       const searchLower = searchQuery.toLowerCase();
       return (
-        pedido.customerName.toLowerCase().includes(searchLower) ||
-        pedido.customerEmail.toLowerCase().includes(searchLower) ||
-        pedido.orderNumber.toLowerCase().includes(searchLower)
+        order.customer_name.toLowerCase().includes(searchLower) ||
+        order.customer_email.toLowerCase().includes(searchLower) ||
+        order.order_number.toLowerCase().includes(searchLower)
       );
     }
     return true;
   });
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Carregando pedidos...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-red-500">Erro ao carregar pedidos: {(error as Error).message}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full overflow-y-auto overflow-x-hidden p-4 h-full">
       <div className="mx-auto w-full space-y-6">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -72,31 +101,29 @@ export function PedidosContent() {
           </div>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="border rounded-lg p-4 bg-card">
             <p className="text-xs font-medium text-muted-foreground uppercase">Total Pedidos</p>
-            <p className="text-3xl font-bold mt-1">{pedidosStats.total}</p>
+            <p className="text-3xl font-bold mt-1">{stats?.total || 0}</p>
             <p className="text-xs text-muted-foreground mt-1">Desde sempre</p>
           </div>
           <div className="border rounded-lg p-4 bg-card">
             <p className="text-xs font-medium text-muted-foreground uppercase">Pedidos Pagos</p>
-            <p className="text-3xl font-bold mt-1 text-emerald-600">{pedidosStats.paid}</p>
+            <p className="text-3xl font-bold mt-1 text-emerald-600">{stats?.paid || 0}</p>
             <p className="text-xs text-muted-foreground mt-1">Pagamentos completados</p>
           </div>
           <div className="border rounded-lg p-4 bg-card">
             <p className="text-xs font-medium text-muted-foreground uppercase">Pendente/Processando</p>
-            <p className="text-3xl font-bold mt-1 text-amber-600">{pedidosStats.pending}</p>
+            <p className="text-3xl font-bold mt-1 text-amber-600">{stats?.pending || 0}</p>
             <p className="text-xs text-muted-foreground mt-1">Em progresso</p>
           </div>
           <div className="border rounded-lg p-4 bg-card">
             <p className="text-xs font-medium text-muted-foreground uppercase">Falhou/Cancelado</p>
-            <p className="text-3xl font-bold mt-1 text-red-600">{pedidosStats.failed}</p>
+            <p className="text-3xl font-bold mt-1 text-red-600">{stats?.failed || 0}</p>
             <p className="text-xs text-muted-foreground mt-1">Precisa de atenção</p>
           </div>
         </div>
 
-        {/* Search and Filter */}
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -122,7 +149,6 @@ export function PedidosContent() {
           </Select>
         </div>
 
-        {/* Table */}
         <div className="rounded-lg border bg-card overflow-hidden">
           <Table>
             <TableHeader>
@@ -136,20 +162,23 @@ export function PedidosContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPedidos.map((pedido) => (
-                <TableRow key={pedido.id}>
-                  <TableCell className="font-medium">{pedido.orderNumber}</TableCell>
+              {filteredOrders?.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">{order.order_number}</TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-medium">{pedido.customerName}</span>
-                      <span className="text-xs text-muted-foreground">{pedido.customerEmail}</span>
+                      <span className="font-medium">{order.customer_name}</span>
+                      <span className="text-xs text-muted-foreground">{order.customer_email}</span>
                     </div>
                   </TableCell>
-                  <TableCell>{pedido.total} MTn</TableCell>
-                  <TableCell>{getStatusBadge(pedido.status)}</TableCell>
-                  <TableCell className="text-muted-foreground">{pedido.createdDate}</TableCell>
+                  <TableCell>{order.total} MTn</TableCell>
+                  <TableCell>{getStatusBadge(order.status)}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatDate(order.created_at)}</TableCell>
                   <TableCell>
-                    <Select defaultValue={pedido.status}>
+                    <Select 
+                      defaultValue={order.status}
+                      onValueChange={(value) => handleStatusChange(order.id, value)}
+                    >
                       <SelectTrigger className="w-[130px] h-8">
                         <SelectValue />
                       </SelectTrigger>
@@ -163,6 +192,13 @@ export function PedidosContent() {
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredOrders?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    Nenhum pedido encontrado.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

@@ -1,5 +1,6 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Folder } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function DashboardHeader() {
   return (
@@ -11,6 +12,7 @@ export function DashboardHeader() {
           <span className="text-sm font-medium">Dashboard</span>
         </div>
       </div>
+      <ThemeToggle />
     </header>
   );
 }

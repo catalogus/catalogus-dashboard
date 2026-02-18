@@ -10,13 +10,16 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { reivindicacoes, reivindicacoesStats } from "@/mock-data/reivindicacoes";
+import { useAuthorClaims, useAuthorClaimStats, useUpdateAuthorClaim } from "@/hooks/use-supabase";
 import { cn } from "@/lib/utils";
 
 type TabStatus = "all" | "pending" | "approved" | "rejected";
 
 export function ReivindicacoesContent() {
   const [activeTab, setActiveTab] = useState<TabStatus>("all");
+  const { data: claims, isLoading } = useAuthorClaims();
+  const { data: stats } = useAuthorClaimStats();
+  const updateMutation = useUpdateAuthorClaim();
 
   const getClaimStatusBadge = (status: string) => {
     switch (status) {
@@ -27,38 +30,45 @@ export function ReivindicacoesContent() {
       case "pending":
         return <Badge className="bg-amber-500/15 text-amber-600 hover:bg-amber-500/20">pending</Badge>;
       default:
-        return null;
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  const getProfileStatusBadge = (status: string | null) => {
-    if (!status) return <span className="text-muted-foreground">—</span>;
-    switch (status) {
-      case "approved":
-        return <Badge className="bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/20">approved</Badge>;
-      case "pending":
-        return <Badge className="bg-amber-500/15 text-amber-600 hover:bg-amber-500/20">pending</Badge>;
-      default:
-        return null;
-    }
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('pt-MZ', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
   };
 
-  const filteredReivindicacoes = reivindicacoes.filter((item) => {
+  const handleStatusChange = async (id: string, newStatus: 'approved' | 'rejected') => {
+    await updateMutation.mutateAsync({ id, status: newStatus });
+  };
+
+  const filteredClaims = claims?.filter((item) => {
     if (activeTab === "all") return true;
-    return item.claimStatus === activeTab;
+    return item.status === activeTab;
   });
 
   const tabs = [
-    { id: "pending" as TabStatus, label: "Pendente", count: reivindicacoesStats.pending },
-    { id: "approved" as TabStatus, label: "Aprovado", count: reivindicacoesStats.approved },
-    { id: "rejected" as TabStatus, label: "Rejeitado", count: reivindicacoesStats.rejected },
-    { id: "all" as TabStatus, label: "Tudo", count: reivindicacoesStats.total },
+    { id: "pending" as TabStatus, label: "Pendente", count: stats?.pending || 0 },
+    { id: "approved" as TabStatus, label: "Aprovado", count: stats?.approved || 0 },
+    { id: "rejected" as TabStatus, label: "Rejeitado", count: stats?.rejected || 0 },
+    { id: "all" as TabStatus, label: "Tudo", count: stats?.total || 0 },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Carregando reivindicações...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full overflow-y-auto overflow-x-hidden p-4 h-full">
       <div className="mx-auto w-full space-y-6">
-        {/* Header */}
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
             Reivindicações de Autor
@@ -68,7 +78,6 @@ export function ReivindicacoesContent() {
           </p>
         </div>
 
-        {/* Tabs */}
         <div className="flex border-b">
           {tabs.map((tab) => (
             <button
@@ -96,65 +105,77 @@ export function ReivindicacoesContent() {
           ))}
         </div>
 
-        {/* Table */}
         <div className="rounded-lg border bg-card overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Nome do Autor</TableHead>
                 <TableHead className="w-[150px]">Reivindicado Por</TableHead>
-                <TableHead className="w-[200px]">Email</TableHead>
                 <TableHead className="w-[150px]">Info de Verificação</TableHead>
-                <TableHead className="w-[120px]">Estado do Perfil</TableHead>
                 <TableHead className="w-[120px]">Data de Reivindicação</TableHead>
-                <TableHead className="w-[100px]">Estado da Reivindicação</TableHead>
+                <TableHead className="w-[120px]">Estado</TableHead>
                 <TableHead className="w-[100px]">Acções</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredReivindicacoes.map((item) => (
-                <TableRow key={item.id}>
+              {filteredClaims?.map((claim) => (
+                <TableRow key={claim.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="size-10">
-                        <AvatarImage src={item.authorPhoto} alt={item.authorName} />
-                        <AvatarFallback>{item.authorName.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={(claim.authors as any)?.photo_url || undefined} alt={(claim.authors as any)?.name} />
+                        <AvatarFallback>{(claim.authors as any)?.name?.charAt(0) || '?'}</AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col">
-                        <span className="font-medium">{item.authorName}</span>
-                        <a 
-                          href={`/autores/${item.authorSlug}`} 
-                          className="text-xs text-blue-600 hover:underline"
-                        >
-                          Ver página pública
-                        </a>
+                        <span className="font-medium">{(claim.authors as any)?.name || 'Autor desconhecido'}</span>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {item.claimedBy || "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {item.email || "—"}
+                    {(claim.profiles as any)?.name || '—'}
                   </TableCell>
                   <TableCell>
-                    {item.verificationInfo ? (
+                    {claim.notes ? (
                       <button className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
                         <ChevronDown className="size-3" />
-                        {item.verificationInfo}
+                        Ver notas
                       </button>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell>{getProfileStatusBadge(item.profileStatus)}</TableCell>
-                  <TableCell className="text-muted-foreground">{item.claimedDate}</TableCell>
-                  <TableCell>{getClaimStatusBadge(item.claimStatus)}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatDate(claim.claimed_at)}</TableCell>
+                  <TableCell>{getClaimStatusBadge(claim.status)}</TableCell>
                   <TableCell>
-                    <span className="text-sm text-muted-foreground">Sem acções</span>
+                    {claim.status === 'pending' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleStatusChange(claim.id, 'approved')}
+                          className="text-xs text-emerald-600 hover:underline"
+                        >
+                          Aprovar
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange(claim.id, 'rejected')}
+                          className="text-xs text-red-600 hover:underline"
+                        >
+                          Rejeitar
+                        </button>
+                      </div>
+                    )}
+                    {claim.status !== 'pending' && (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredClaims?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    Nenhuma reivindicação encontrada.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

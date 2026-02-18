@@ -25,30 +25,50 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { articles, articleStats, categories, languages, sortOptions } from "@/mock-data/artigos";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import { usePosts, usePostStats, usePostCategories } from "@/hooks/use-supabase";
 import { cn } from "@/lib/utils";
 
-type TabStatus = "all" | "published" | "drafts" | "trash";
+type TabStatus = "all" | "published" | "draft" | "trash";
+
+const PAGE_SIZE = 10;
 
 export function ArtigosContent() {
   const [activeTab, setActiveTab] = useState<TabStatus>("published");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("published");
-  const [selectedLanguage, setSelectedLanguage] = useState("Português");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedSort, setSelectedSort] = useState("newest");
+  const [page, setPage] = useState(1);
 
-  const filteredArticles = articles.filter((article) => {
-    if (activeTab !== "all" && article.status !== activeTab) return false;
-    if (searchQuery && !article.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    if (selectedCategory !== "all" && !article.categories.includes(selectedCategory)) return false;
-    return true;
-  });
+  const { data: postsData, isLoading } = usePosts(activeTab, page, PAGE_SIZE, debouncedSearch);
+  const { data: stats } = usePostStats();
+  const { data: categories } = usePostCategories();
+
+  const posts = postsData?.data || [];
+  const totalPages = postsData?.totalPages || 1;
+  const totalCount = postsData?.totalCount || 0;
+
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+    setPage(1);
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(value);
+    }, 300);
+    return () => clearTimeout(timeout);
+  };
 
   const tabs = [
-    { id: "published" as TabStatus, label: "Publicados", count: articleStats.published },
-    { id: "drafts" as TabStatus, label: "Rascunhos", count: articleStats.drafts },
-    { id: "trash" as TabStatus, label: "Lixeira", count: articleStats.trash },
+    { id: "published" as TabStatus, label: "Publicados", count: stats?.published || 0 },
+    { id: "draft" as TabStatus, label: "Rascunhos", count: stats?.draft || 0 },
+    { id: "trash" as TabStatus, label: "Lixeira", count: stats?.trash || 0 },
   ];
 
   const getStatusBadge = (status: string) => {
@@ -60,7 +80,7 @@ export function ArtigosContent() {
       case "trash":
         return <Badge variant="destructive">trash</Badge>;
       default:
-        return null;
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
@@ -74,14 +94,47 @@ export function ArtigosContent() {
       case "pending":
         return <Badge variant="outline">pending</Badge>;
       default:
-        return null;
+        return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('pt-MZ', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const getVisiblePages = (): (number | 'ellipsis')[] => {
+    const visible: (number | 'ellipsis')[] = [];
+    const maxVisible = 5;
+    
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) visible.push(i);
+    } else {
+      if (page <= 3) {
+        for (let i = 1; i <= 4; i++) visible.push(i);
+        visible.push('ellipsis');
+        visible.push(totalPages);
+      } else if (page >= totalPages - 2) {
+        visible.push(1);
+        visible.push('ellipsis');
+        for (let i = totalPages - 3; i <= totalPages; i++) visible.push(i);
+      } else {
+        visible.push(1);
+        visible.push('ellipsis');
+        for (let i = page - 1; i <= page + 1; i++) visible.push(i);
+        visible.push('ellipsis');
+        visible.push(totalPages);
+      }
+    }
+    return visible;
   };
 
   return (
     <div className="w-full overflow-y-auto overflow-x-hidden p-4 h-full">
       <div className="mx-auto w-full space-y-6">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -97,12 +150,14 @@ export function ArtigosContent() {
           </Button>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-2">
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setPage(1);
+              }}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 text-sm font-medium border rounded-md transition-colors",
                 activeTab === tab.id
@@ -125,83 +180,50 @@ export function ArtigosContent() {
           ))}
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-3 gap-4">
           <div className="border rounded-lg p-4 bg-card">
             <p className="text-xs font-medium text-muted-foreground uppercase">Publicados</p>
-            <p className="text-3xl font-bold mt-1">{articleStats.published}</p>
+            <p className="text-3xl font-bold mt-1">{stats?.published || 0}</p>
           </div>
           <div className="border rounded-lg p-4 bg-card">
             <p className="text-xs font-medium text-muted-foreground uppercase">Rascunhos</p>
-            <p className="text-3xl font-bold mt-1">{articleStats.drafts}</p>
+            <p className="text-3xl font-bold mt-1">{stats?.draft || 0}</p>
           </div>
           <div className="border rounded-lg p-4 bg-card">
             <p className="text-xs font-medium text-muted-foreground uppercase">Lixeira</p>
-            <p className="text-3xl font-bold mt-1">{articleStats.trash}</p>
+            <p className="text-3xl font-bold mt-1">{stats?.trash || 0}</p>
           </div>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               placeholder="Buscar artigos..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
               className="pl-10"
             />
           </div>
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="published">Publicados</SelectItem>
-              <SelectItem value="draft">Rascunhos</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {languages.map((lang) => (
-                <SelectItem key={lang} value={lang}>
-                  {lang}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
             <SelectTrigger className="w-[200px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas Categorias</SelectItem>
-              {categories.filter(c => c !== "Todos").map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedSort} onValueChange={setSelectedSort}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
+              {categories?.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
-        {/* Table */}
+        <div className="text-sm text-muted-foreground">
+          {totalCount} artigos encontrados
+        </div>
+
         <div className="rounded-lg border bg-card overflow-hidden">
           <Table>
             <TableHeader>
@@ -211,7 +233,6 @@ export function ArtigosContent() {
                 </TableHead>
                 <TableHead>Título</TableHead>
                 <TableHead className="w-[100px]">Autor</TableHead>
-                <TableHead className="w-[150px]">Categorias</TableHead>
                 <TableHead className="w-[100px]">Status</TableHead>
                 <TableHead className="w-[100px]">Tradução</TableHead>
                 <TableHead className="w-[100px]">Data</TableHead>
@@ -219,26 +240,23 @@ export function ArtigosContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredArticles.map((article) => (
-                <TableRow key={article.id}>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    Carregando...
+                  </TableCell>
+                </TableRow>
+              ) : posts?.map((post) => (
+                <TableRow key={post.id}>
                   <TableCell>
                     <Checkbox />
                   </TableCell>
-                  <TableCell className="font-medium">{article.title}</TableCell>
-                  <TableCell>{article.author}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {article.categories.map((cat) => (
-                        <Badge key={cat} variant="outline" className="text-xs">
-                          {cat}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>{getStatusBadge(article.status)}</TableCell>
-                  <TableCell>{getTranslationBadge(article.translationStatus)}</TableCell>
+                  <TableCell className="font-medium">{post.title}</TableCell>
+                  <TableCell>{(post.profiles as any)?.name || '-'}</TableCell>
+                  <TableCell>{getStatusBadge(post.status)}</TableCell>
+                  <TableCell>{getTranslationBadge(post.translation_status)}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {article.date}
+                    {formatDate(post.created_at)}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -262,9 +280,52 @@ export function ArtigosContent() {
                   </TableCell>
                 </TableRow>
               ))}
+              {!isLoading && posts?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    Nenhum artigo encontrado.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
+
+        {totalPages > 1 && (
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                />
+              </PaginationItem>
+              
+              {getVisiblePages().map((p, i) => (
+                <PaginationItem key={i}>
+                  {p === 'ellipsis' ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      onClick={() => setPage(p as number)}
+                      isActive={page === p}
+                      className="cursor-pointer"
+                    >
+                      {p}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+              
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  className={page === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
       </div>
     </div>
   );
