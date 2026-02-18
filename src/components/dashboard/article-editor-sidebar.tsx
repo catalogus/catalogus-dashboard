@@ -146,14 +146,14 @@ export function ArticleEditorSidebar({
         <div className="space-y-3">
           <Label>Estado da Tradução</Label>
           <Select 
-            value={translationStatus || ""} 
-            onValueChange={(v) => setTranslationStatus(v || null)}
+            value={translationStatus || "none"} 
+            onValueChange={(v) => setTranslationStatus(v === "none" ? null : v)}
           >
             <SelectTrigger>
               <SelectValue placeholder="Nenhum" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Nenhum</SelectItem>
+              <SelectItem value="none">Nenhum</SelectItem>
               <SelectItem value="pending">Pendente</SelectItem>
               <SelectItem value="review">Revisão</SelectItem>
               <SelectItem value="completed">Completo</SelectItem>
