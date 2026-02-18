@@ -7,10 +7,10 @@ import Underline from '@tiptap/extension-underline'
 import { Button } from '@/components/ui/button'
 import { Toggle } from '@/components/ui/toggle'
 import { 
-  Bold, Italic, Underline as UnderlineIcon, Strikethrough, 
-  List, ListOrdered, Quote, Code, Link as LinkIcon, 
+  Bold, Italic, Underline as UnderlineIcon,
+  List, ListOrdered, Quote, Link as LinkIcon, 
   Image as ImageIcon, Heading1, Heading2, Heading3,
-  Minus, Undo, Redo
+  Undo, Redo
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -56,7 +56,7 @@ export function RichTextEditor({
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-lg dark:prose-invert max-w-none focus:outline-none min-h-[400px] px-4 py-3',
+        class: 'prose prose-lg dark:prose-invert max-w-none focus:outline-none min-h-[400px] px-0 py-4',
       },
     },
   })
@@ -80,14 +80,15 @@ export function RichTextEditor({
   }
 
   return (
-    <div className={cn("border rounded-lg overflow-hidden bg-background", className)}>
+    <div className={cn("overflow-hidden bg-transparent", className)}>
       {/* Toolbar */}
-      <div className="border-b bg-muted/30 px-2 py-1.5 flex flex-wrap items-center gap-1">
+      <div className="px-0 py-2 flex flex-wrap items-center gap-0.5">
         <Toggle
           size="sm"
           pressed={editor.isActive('heading', { level: 1 })}
           onPressedChange={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           title="Título 1"
+          className="border-0 bg-transparent hover:bg-muted"
         >
           <Heading1 className="size-4" />
         </Toggle>
@@ -96,6 +97,7 @@ export function RichTextEditor({
           pressed={editor.isActive('heading', { level: 2 })}
           onPressedChange={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           title="Título 2"
+          className="border-0 bg-transparent hover:bg-muted"
         >
           <Heading2 className="size-4" />
         </Toggle>
@@ -104,6 +106,7 @@ export function RichTextEditor({
           pressed={editor.isActive('heading', { level: 3 })}
           onPressedChange={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
           title="Título 3"
+          className="border-0 bg-transparent hover:bg-muted"
         >
           <Heading3 className="size-4" />
         </Toggle>
@@ -115,6 +118,7 @@ export function RichTextEditor({
           pressed={editor.isActive('bold')}
           onPressedChange={() => editor.chain().focus().toggleBold().run()}
           title="Negrito"
+          className="border-0 bg-transparent hover:bg-muted"
         >
           <Bold className="size-4" />
         </Toggle>
@@ -123,6 +127,7 @@ export function RichTextEditor({
           pressed={editor.isActive('italic')}
           onPressedChange={() => editor.chain().focus().toggleItalic().run()}
           title="Itálico"
+          className="border-0 bg-transparent hover:bg-muted"
         >
           <Italic className="size-4" />
         </Toggle>
@@ -131,16 +136,9 @@ export function RichTextEditor({
           pressed={editor.isActive('underline')}
           onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
           title="Sublinhado"
+          className="border-0 bg-transparent hover:bg-muted"
         >
           <UnderlineIcon className="size-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('strike')}
-          onPressedChange={() => editor.chain().focus().toggleStrike().run()}
-          title="Riscado"
-        >
-          <Strikethrough className="size-4" />
         </Toggle>
         
         <div className="w-px h-5 bg-border mx-1" />
@@ -150,6 +148,7 @@ export function RichTextEditor({
           pressed={editor.isActive('bulletList')}
           onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
           title="Lista"
+          className="border-0 bg-transparent hover:bg-muted"
         >
           <List className="size-4" />
         </Toggle>
@@ -158,6 +157,7 @@ export function RichTextEditor({
           pressed={editor.isActive('orderedList')}
           onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
           title="Lista numerada"
+          className="border-0 bg-transparent hover:bg-muted"
         >
           <ListOrdered className="size-4" />
         </Toggle>
@@ -166,16 +166,9 @@ export function RichTextEditor({
           pressed={editor.isActive('blockquote')}
           onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
           title="Citação"
+          className="border-0 bg-transparent hover:bg-muted"
         >
           <Quote className="size-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('codeBlock')}
-          onPressedChange={() => editor.chain().focus().toggleCodeBlock().run()}
-          title="Código"
-        >
-          <Code className="size-4" />
         </Toggle>
         
         <div className="w-px h-5 bg-border mx-1" />
@@ -185,6 +178,7 @@ export function RichTextEditor({
           pressed={editor.isActive('link')}
           onPressedChange={addLink}
           title="Link"
+          className="border-0 bg-transparent hover:bg-muted"
         >
           <LinkIcon className="size-4" />
         </Toggle>
@@ -192,21 +186,10 @@ export function RichTextEditor({
           size="sm"
           onPressedChange={addImage}
           title="Imagem"
+          className="border-0 bg-transparent hover:bg-muted"
         >
           <ImageIcon className="size-4" />
         </Toggle>
-        
-        <div className="w-px h-5 bg-border mx-1" />
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          title="Linha horizontal"
-          className="h-7 w-7 p-0"
-        >
-          <Minus className="size-4" />
-        </Button>
         
         <div className="flex-1" />
         
@@ -216,7 +199,7 @@ export function RichTextEditor({
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editor.can().undo()}
           title="Desfazer"
-          className="h-7 w-7 p-0"
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
         >
           <Undo className="size-4" />
         </Button>
@@ -226,7 +209,7 @@ export function RichTextEditor({
           onClick={() => editor.chain().focus().redo().run()}
           disabled={!editor.can().redo()}
           title="Refazer"
-          className="h-7 w-7 p-0"
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
         >
           <Redo className="size-4" />
         </Button>

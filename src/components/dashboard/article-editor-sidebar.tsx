@@ -74,8 +74,8 @@ export function ArticleEditorSidebar({
   };
 
   return (
-    <aside className="w-72 border-l bg-muted/30 overflow-y-auto shrink-0">
-      <div className="p-4 space-y-6">
+    <aside className="w-72 border-l overflow-y-auto shrink-0 bg-muted/20">
+      <div className="p-5 space-y-6">
         <div className="space-y-3">
           <Label>Estado</Label>
           <Select value={status} onValueChange={setStatus}>

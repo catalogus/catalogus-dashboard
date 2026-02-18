@@ -162,19 +162,19 @@ export function ArticleEditor({ postId }: ArticleEditorProps) {
       />
       
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-3xl mx-auto space-y-6">
-            <div className="space-y-3">
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto py-8 px-6 space-y-6">
+            <div className="space-y-2">
               <Label htmlFor="title" className="sr-only">Título</Label>
               <Input
                 id="title"
-                placeholder="Título do artigo"
+                placeholder="Título"
                 value={title}
                 onChange={(e) => {
                   setTitle(e.target.value);
                   handleChange();
                 }}
-                className="text-2xl font-semibold border-0 px-0 focus-visible:ring-0 h-auto py-2"
+                className="text-3xl font-bold border-0 px-0 focus-visible:ring-0 h-auto py-1 bg-transparent"
               />
             </div>
             
@@ -184,7 +184,8 @@ export function ArticleEditor({ postId }: ArticleEditorProps) {
                 setBody(content);
                 handleChange();
               }}
-              placeholder="Comece a escrever o seu artigo..."
+              placeholder="Comece a escrever..."
+              className="border-0"
             />
           </div>
         </main>
