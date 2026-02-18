@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RichTextEditor } from "@/components/ui/richtext-editor";
+import { Toggle } from "@/components/ui/toggle";
+import { Button } from "@/components/ui/button";
+import { RichTextEditor, EditorRef } from "@/components/ui/richtext-editor";
 import { ArticleEditorHeader } from "./article-editor-header";
 import { ArticleEditorSidebar } from "./article-editor-sidebar";
 import { 
@@ -11,8 +11,15 @@ import {
   useAuthorsList, 
   usePostCategories, 
   useCreatePost, 
-  useUpdatePost 
+  useUpdatePost,
+  useUploadFile
 } from "@/hooks/use-supabase";
+import { 
+  Bold, Italic, Underline,
+  List, ListOrdered, Quote, Link, 
+  Image, Heading1, Heading2, Heading3,
+  Undo, Redo, Loader2
+} from "lucide-react";
 
 interface ArticleEditorProps {
   postId?: string;
@@ -21,6 +28,9 @@ interface ArticleEditorProps {
 export function ArticleEditor({ postId }: ArticleEditorProps) {
   const navigate = useNavigate();
   const isNew = !postId;
+  const editorRef = useRef<EditorRef>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const uploadMutation = useUploadFile();
   
   const { data: post } = usePost(postId);
   const { data: existingCategories } = usePostCategoriesMap(postId);
@@ -162,31 +172,186 @@ export function ArticleEditor({ postId }: ArticleEditorProps) {
       />
       
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto py-8 px-6 space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="title" className="sr-only">Título</Label>
-              <Input
-                id="title"
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <div className="border-b bg-background px-6 py-2 flex items-center gap-0.5 shrink-0">
+            <Toggle
+              size="sm"
+              onPressedChange={() => editorRef.current?.toggleHeading(1)}
+              title="Título 1"
+              className="border-0 bg-transparent hover:bg-muted"
+            >
+              <Heading1 className="size-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => editorRef.current?.toggleHeading(2)}
+              title="Título 2"
+              className="border-0 bg-transparent hover:bg-muted"
+            >
+              <Heading2 className="size-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => editorRef.current?.toggleHeading(3)}
+              title="Título 3"
+              className="border-0 bg-transparent hover:bg-muted"
+            >
+              <Heading3 className="size-4" />
+            </Toggle>
+            
+            <div className="w-px h-5 bg-border mx-1" />
+            
+            <Toggle
+              size="sm"
+              onPressedChange={() => editorRef.current?.toggleBold()}
+              title="Negrito"
+              className="border-0 bg-transparent hover:bg-muted"
+            >
+              <Bold className="size-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => editorRef.current?.toggleItalic()}
+              title="Itálico"
+              className="border-0 bg-transparent hover:bg-muted"
+            >
+              <Italic className="size-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => editorRef.current?.toggleUnderline()}
+              title="Sublinhado"
+              className="border-0 bg-transparent hover:bg-muted"
+            >
+              <Underline className="size-4" />
+            </Toggle>
+            
+            <div className="w-px h-5 bg-border mx-1" />
+            
+            <Toggle
+              size="sm"
+              onPressedChange={() => editorRef.current?.toggleBulletList()}
+              title="Lista"
+              className="border-0 bg-transparent hover:bg-muted"
+            >
+              <List className="size-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => editorRef.current?.toggleOrderedList()}
+              title="Lista numerada"
+              className="border-0 bg-transparent hover:bg-muted"
+            >
+              <ListOrdered className="size-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => editorRef.current?.toggleBlockquote()}
+              title="Citação"
+              className="border-0 bg-transparent hover:bg-muted"
+            >
+              <Quote className="size-4" />
+            </Toggle>
+            
+            <div className="w-px h-5 bg-border mx-1" />
+            
+            <Toggle
+              size="sm"
+              onPressedChange={() => editorRef.current?.addLink()}
+              title="Link"
+              className="border-0 bg-transparent hover:bg-muted"
+            >
+              <Link className="size-4" />
+            </Toggle>
+            <Toggle
+              size="sm"
+              onPressedChange={() => imageInputRef.current?.click()}
+              title="Imagem"
+              className="border-0 bg-transparent hover:bg-muted"
+            >
+              {uploadMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Image className="size-4" />
+              )}
+            </Toggle>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                  const url = await uploadMutation.mutateAsync({ 
+                    file, 
+                    bucket: 'post-images',
+                    folder: ''
+                  });
+                  editorRef.current?.setImage(url);
+                } catch (error) {
+                  console.error('Upload failed:', error);
+                  alert('Erro ao fazer upload da imagem. Verifique se o bucket "images" existe no Supabase.');
+                }
+                if (imageInputRef.current) {
+                  imageInputRef.current.value = '';
+                }
+              }}
+            />
+            
+            <div className="flex-1" />
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => editorRef.current?.undo()}
+              title="Desfazer"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+            >
+              <Undo className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => editorRef.current?.redo()}
+              title="Refazer"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+            >
+              <Redo className="size-4" />
+            </Button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-2xl mx-auto py-8 px-6">
+              <textarea
                 placeholder="Título"
                 value={title}
                 onChange={(e) => {
                   setTitle(e.target.value);
                   handleChange();
                 }}
-                className="text-3xl font-bold border-0 px-0 focus-visible:ring-0 h-auto py-1 bg-transparent"
+                rows={1}
+                className="w-full text-2xl font-bold border-0 px-0 py-1 bg-transparent focus:outline-none placeholder:text-muted-foreground leading-normal mb-6 resize-none overflow-hidden"
+                style={{ height: 'auto', minHeight: '2.5rem' }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = target.scrollHeight + 'px';
+                }}
+              />
+              
+              <RichTextEditor
+                ref={editorRef}
+                content={body}
+                onChange={(content) => {
+                  setBody(content);
+                  handleChange();
+                }}
+                placeholder="Comece a escrever..."
+                className="border-0"
               />
             </div>
-            
-            <RichTextEditor
-              content={body}
-              onChange={(content) => {
-                setBody(content);
-                handleChange();
-              }}
-              placeholder="Comece a escrever..."
-              className="border-0"
-            />
           </div>
         </main>
         

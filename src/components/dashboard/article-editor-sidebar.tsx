@@ -15,10 +15,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, Upload } from "lucide-react";
+import { CalendarIcon, Upload, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useRef } from "react";
+import { useUploadFile } from "@/hooks/use-supabase";
 
 interface ArticleEditorSidebarProps {
   status: string;
@@ -65,11 +67,35 @@ export function ArticleEditorSidebar({
   createdAt,
   updatedAt,
 }: ArticleEditorSidebarProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadMutation = useUploadFile();
+  
   const toggleCategory = (categoryId: string) => {
     if (selectedCategories.includes(categoryId)) {
       setSelectedCategories(selectedCategories.filter((id) => id !== categoryId));
     } else {
       setSelectedCategories([...selectedCategories, categoryId]);
+    }
+  };
+  
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const url = await uploadMutation.mutateAsync({ 
+        file, 
+        bucket: 'post-images',
+        folder: ''
+      });
+      setFeaturedImageUrl(url);
+    } catch (error: unknown) {
+      console.error('Upload failed:', error);
+      const message = error instanceof Error ? error.message : 'Erro desconhecido';
+      alert(`Erro ao fazer upload da imagem.\n\n${message}\n\nVerifique se o bucket "post-images" existe no Supabase Storage.`);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -182,8 +208,25 @@ export function ArticleEditorSidebar({
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center gap-2">
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Upload className="size-4" />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-1.5"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadMutation.isPending}
+                >
+                  {uploadMutation.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Upload className="size-4" />
+                  )}
                   Upload
                 </Button>
                 <p className="text-xs text-muted-foreground">ou cole uma URL</p>
