@@ -12,7 +12,8 @@ import {
   usePostCategories, 
   useCreatePost, 
   useUpdatePost,
-  useUploadFile
+  useUploadFile,
+  useTranslatePost
 } from "@/hooks/use-supabase";
 import { 
   Bold, Italic, Underline,
@@ -20,6 +21,8 @@ import {
   Image, Heading1, Heading2, Heading3,
   Undo, Redo, Loader2
 } from "lucide-react";
+import { validateAndOptimizeImage } from "@/lib/imageOptimization";
+import { toast } from "sonner";
 
 interface ArticleEditorProps {
   postId?: string;
@@ -39,6 +42,7 @@ export function ArticleEditor({ postId }: ArticleEditorProps) {
   
   const createMutation = useCreatePost();
   const updateMutation = useUpdatePost();
+  const translateMutation = useTranslatePost();
   
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -284,15 +288,21 @@ export function ArticleEditor({ postId }: ArticleEditorProps) {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 try {
+                  const originalSizeMB = (file.size / 1024 / 1024).toFixed(2);
+                  const optimizedFile = await validateAndOptimizeImage(file, 'postInlineImage');
+                  const optimizedSizeMB = (optimizedFile.size / 1024 / 1024).toFixed(2);
+
                   const url = await uploadMutation.mutateAsync({ 
-                    file, 
+                    file: optimizedFile,
                     bucket: 'post-images',
                     folder: ''
                   });
                   editorRef.current?.setImage(url);
+                  toast.success(`Imagem otimizada: ${originalSizeMB}MB -> ${optimizedSizeMB}MB`);
                 } catch (error) {
                   console.error('Upload failed:', error);
-                  alert('Erro ao fazer upload da imagem. Verifique se o bucket "images" existe no Supabase.');
+                  const message = error instanceof Error ? error.message : 'Erro ao fazer upload da imagem';
+                  toast.error(message);
                 }
                 if (imageInputRef.current) {
                   imageInputRef.current.value = '';
@@ -356,6 +366,7 @@ export function ArticleEditor({ postId }: ArticleEditorProps) {
         </main>
         
         <ArticleEditorSidebar
+          postId={postId}
           status={status}
           setStatus={(v) => { setStatus(v); handleChange(); }}
           authorId={authorId}
@@ -376,6 +387,7 @@ export function ArticleEditor({ postId }: ArticleEditorProps) {
           setPublishedAt={(v) => { setPublishedAt(v); handleChange(); }}
           createdAt={post?.created_at || null}
           updatedAt={post?.updated_at || null}
+          translateMutation={translateMutation}
         />
       </div>
     </div>

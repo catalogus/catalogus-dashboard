@@ -15,14 +15,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, Upload, Loader2 } from "lucide-react";
+import { CalendarIcon, Upload, Loader2, Languages } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { useRef } from "react";
-import { useUploadFile } from "@/hooks/use-supabase";
+import { useRef, useState } from "react";
+import { useUploadFile, useTranslatePost } from "@/hooks/use-supabase";
+import { Badge } from "@/components/ui/badge";
+import { validateAndOptimizeImage } from "@/lib/imageOptimization";
+import { toast } from "sonner";
 
 interface ArticleEditorSidebarProps {
+  postId?: string;
   status: string;
   setStatus: (value: string) => void;
   authorId: string | null;
@@ -43,9 +47,11 @@ interface ArticleEditorSidebarProps {
   setPublishedAt: (value: Date | null) => void;
   createdAt: string | null;
   updatedAt: string | null;
+  translateMutation: ReturnType<typeof useTranslatePost>;
 }
 
 export function ArticleEditorSidebar({
+  postId,
   status,
   setStatus,
   authorId,
@@ -66,9 +72,40 @@ export function ArticleEditorSidebar({
   setPublishedAt,
   createdAt,
   updatedAt,
+  translateMutation,
 }: ArticleEditorSidebarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadMutation = useUploadFile();
+  const [isOptimizingImage, setIsOptimizingImage] = useState(false);
+  const [optimizationStats, setOptimizationStats] = useState<{
+    originalSizeMB: string;
+    optimizedSizeMB: string;
+  } | null>(null);
+  
+  const handleTranslate = async () => {
+    if (!postId) return;
+    try {
+      await translateMutation.mutateAsync(postId);
+      alert('Tradução iniciada. A tradução será criada como rascunho para revisão.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao traduzir';
+      alert(message);
+    }
+  };
+  
+  const getTranslationStatusBadge = () => {
+    if (!translationStatus) return null;
+    switch (translationStatus) {
+      case 'pending':
+        return <Badge variant="outline" className="text-xs">Pendente</Badge>;
+      case 'review':
+        return <Badge className="bg-blue-500/15 text-blue-600 text-xs">Revisão</Badge>;
+      case 'completed':
+        return <Badge className="bg-emerald-500/15 text-emerald-600 text-xs">Completo</Badge>;
+      default:
+        return <Badge variant="outline" className="text-xs">{translationStatus}</Badge>;
+    }
+  };
   
   const toggleCategory = (categoryId: string) => {
     if (selectedCategories.includes(categoryId)) {
@@ -83,16 +120,27 @@ export function ArticleEditorSidebar({
     if (!file) return;
     
     try {
+      setIsOptimizingImage(true);
+      setOptimizationStats(null);
+
+      const originalSizeMB = (file.size / 1024 / 1024).toFixed(2);
+      const optimizedFile = await validateAndOptimizeImage(file, 'postFeaturedImage');
+      const optimizedSizeMB = (optimizedFile.size / 1024 / 1024).toFixed(2);
+
       const url = await uploadMutation.mutateAsync({ 
-        file, 
+        file: optimizedFile,
         bucket: 'post-images',
         folder: ''
       });
       setFeaturedImageUrl(url);
+      setOptimizationStats({ originalSizeMB, optimizedSizeMB });
+      toast.success(`Imagem otimizada: ${originalSizeMB}MB -> ${optimizedSizeMB}MB`);
     } catch (error: unknown) {
       console.error('Upload failed:', error);
       const message = error instanceof Error ? error.message : 'Erro desconhecido';
-      alert(`Erro ao fazer upload da imagem.\n\n${message}\n\nVerifique se o bucket "post-images" existe no Supabase Storage.`);
+      toast.error(message);
+    } finally {
+      setIsOptimizingImage(false);
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -100,8 +148,71 @@ export function ArticleEditorSidebar({
   };
 
   return (
-    <aside className="w-72 border-l overflow-y-auto shrink-0 bg-muted/20">
+    <aside className="w-80 border-l overflow-y-auto shrink-0 bg-muted/20">
       <div className="p-5 space-y-6">
+        <div className="space-y-3">
+          <Label>Imagem de Destaque</Label>
+          <div className="border-2 border-dashed rounded-lg p-4 bg-background">
+            {featuredImageUrl ? (
+              <div className="space-y-2">
+                <img
+                  src={featuredImageUrl}
+                  alt="Featured"
+                  className="w-full h-32 object-cover rounded"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFeaturedImageUrl(null)}
+                  className="w-full text-destructive"
+                >
+                  Remover
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  disabled={isOptimizingImage || uploadMutation.isPending}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isOptimizingImage || uploadMutation.isPending}
+                >
+                  {isOptimizingImage || uploadMutation.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Upload className="size-4" />
+                  )}
+                  Upload
+                </Button>
+                {isOptimizingImage ? (
+                  <p className="text-xs text-muted-foreground">Otimizando imagem...</p>
+                ) : optimizationStats ? (
+                  <p className="text-xs text-emerald-600">
+                    Otimizada: {optimizationStats.originalSizeMB}MB {'->'} {optimizationStats.optimizedSizeMB}MB
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">ou cole uma URL</p>
+                )}
+                <Input
+                  placeholder="URL da imagem"
+                  value={featuredImageUrl || ""}
+                  onChange={(e) => setFeaturedImageUrl(e.target.value || null)}
+                  className="h-8 text-xs"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="space-y-3">
           <Label>Estado</Label>
           <Select value={status} onValueChange={setStatus}>
@@ -171,74 +282,44 @@ export function ArticleEditorSidebar({
 
         <div className="space-y-3">
           <Label>Estado da Tradução</Label>
-          <Select 
-            value={translationStatus || "none"} 
-            onValueChange={(v) => setTranslationStatus(v === "none" ? null : v)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Nenhum" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Nenhum</SelectItem>
-              <SelectItem value="pending">Pendente</SelectItem>
-              <SelectItem value="review">Revisão</SelectItem>
-              <SelectItem value="completed">Completo</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-3">
-          <Label>Imagem de Destaque</Label>
-          <div className="border-2 border-dashed rounded-lg p-4 bg-background">
-            {featuredImageUrl ? (
-              <div className="space-y-2">
-                <img
-                  src={featuredImageUrl}
-                  alt="Featured"
-                  className="w-full h-32 object-cover rounded"
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFeaturedImageUrl(null)}
-                  className="w-full text-destructive"
-                >
-                  Remover
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-1.5"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadMutation.isPending}
-                >
-                  {uploadMutation.isPending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Upload className="size-4" />
-                  )}
-                  Upload
-                </Button>
-                <p className="text-xs text-muted-foreground">ou cole uma URL</p>
-                <Input
-                  placeholder="URL da imagem"
-                  value={featuredImageUrl || ""}
-                  onChange={(e) => setFeaturedImageUrl(e.target.value || null)}
-                  className="h-8 text-xs"
-                />
-              </div>
-            )}
+          <div className="flex items-center gap-2">
+            <Select 
+              value={translationStatus || "none"} 
+              onValueChange={(v) => setTranslationStatus(v === "none" ? null : v)}
+            >
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Nenhum" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum</SelectItem>
+                <SelectItem value="pending">Pendente</SelectItem>
+                <SelectItem value="review">Revisão</SelectItem>
+                <SelectItem value="completed">Completo</SelectItem>
+              </SelectContent>
+            </Select>
+            {getTranslationStatusBadge()}
           </div>
+          {postId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-1.5"
+              onClick={handleTranslate}
+              disabled={translateMutation.isPending}
+            >
+              {translateMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Languages className="size-4" />
+              )}
+              Traduzir {language === 'pt' ? 'para Inglês' : 'para Português'}
+            </Button>
+          )}
+          {!postId && (
+            <p className="text-xs text-muted-foreground">
+              Guarde o artigo primeiro para poder traduzir
+            </p>
+          )}
         </div>
 
         <div className="space-y-3">

@@ -262,6 +262,48 @@ export function useUpdatePost() {
   })
 }
 
+export function useBulkUpdatePosts() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ ids, updates }: { ids: string[]; updates: PostUpdate }) => {
+      const { data, error } = await supabase
+        .from('posts')
+        .update(updates as any)
+        .in('id', ids)
+        .select()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+    },
+  })
+}
+
+export function useTranslatePost() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (postId: string) => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('Session expired. Please sign in again to translate posts.')
+      }
+      
+      const { error } = await supabase.functions.invoke('translate-post', {
+        body: { post_id: postId }
+      })
+      
+      if (error) throw error
+      return { success: true }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+    },
+  })
+}
+
 export function useBooks(page: number = 1, pageSize: number = 10, search?: string) {
   return useQuery({
     queryKey: ['books', page, pageSize, search],
@@ -505,22 +547,44 @@ export function useDeleteAuthor() {
   })
 }
 
-export function useOrders(status?: string) {
+export function useOrders(
+  status?: string,
+  page: number = 1,
+  pageSize: number = 10,
+  search?: string,
+) {
   return useQuery({
-    queryKey: ['orders', status],
+    queryKey: ['orders', status, page, pageSize, search],
     queryFn: async () => {
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+
       let query = supabase
         .from('orders')
-        .select('*')
+        .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
+        .range(from, to)
       
       if (status && status !== 'all') {
         query = query.eq('status', status as any)
       }
+
+      if (search) {
+        const term = search.trim()
+        if (term) {
+          query = query.or(
+            `customer_name.ilike.%${term}%,customer_email.ilike.%${term}%,order_number.ilike.%${term}%`,
+          )
+        }
+      }
       
-      const { data, error } = await query
+      const { data, error, count } = await query
       if (error) throw error
-      return data as Order[]
+      return {
+        data: data as Order[],
+        totalCount: count || 0,
+        totalPages: Math.ceil((count || 0) / pageSize),
+      }
     },
   })
 }
@@ -859,5 +923,52 @@ export function useUploadFile() {
       
       return publicUrl
     },
+  })
+}
+
+export function useBooksForHero() {
+  return useQuery({
+    queryKey: ['books-for-hero'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('books')
+        .select('id, title, cover_url')
+        .order('title', { ascending: true })
+      if (error) throw error
+      return data as { id: string; title: string; cover_url: string | null }[]
+    },
+    staleTime: 60_000,
+  })
+}
+
+export function useAuthorsForHero() {
+  return useQuery({
+    queryKey: ['authors-for-hero'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('authors')
+        .select('id, name, photo_url')
+        .eq('featured', true)
+        .order('name', { ascending: true })
+      if (error) throw error
+      return data as { id: string; name: string; photo_url: string | null }[]
+    },
+    staleTime: 60_000,
+  })
+}
+
+export function usePostsForHero() {
+  return useQuery({
+    queryKey: ['posts-for-hero'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('id, title, slug, featured_image_url')
+        .eq('status', 'published')
+        .order('title', { ascending: true })
+      if (error) throw error
+      return data as { id: string; title: string; slug: string | null; featured_image_url: string | null }[]
+    },
+    staleTime: 60_000,
   })
 }

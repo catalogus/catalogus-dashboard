@@ -324,7 +324,7 @@ export function AutoresContent() {
         </div>
 
         {totalPages > 1 && (
-          <Pagination>
+          <Pagination className="mx-0 w-auto justify-start">
             <PaginationContent>
               <PaginationItem>
                 <PaginationPrevious 

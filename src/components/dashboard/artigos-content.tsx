@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, MoreHorizontal, Trash2, FileEdit } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Trash2, FileEdit, X, Check, Star } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -35,7 +35,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { usePosts, usePostStats, usePostCategories } from "@/hooks/use-supabase";
+import { usePosts, usePostStats, usePostCategories, useBulkUpdatePosts } from "@/hooks/use-supabase";
 import { cn } from "@/lib/utils";
 
 type TabStatus = "all" | "published" | "draft" | "trash";
@@ -48,14 +48,19 @@ export function ArtigosContent() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data: postsData, isLoading } = usePosts(activeTab, page, PAGE_SIZE, debouncedSearch);
   const { data: stats } = usePostStats();
   const { data: categories } = usePostCategories();
+  const bulkUpdateMutation = useBulkUpdatePosts();
 
   const posts = postsData?.data || [];
   const totalPages = postsData?.totalPages || 1;
   const totalCount = postsData?.totalCount || 0;
+  
+  const allSelected = posts.length > 0 && posts.every((p: any) => selectedIds.has(p.id));
+  const someSelected = selectedIds.size > 0;
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
@@ -132,6 +137,42 @@ export function ArtigosContent() {
     }
     return visible;
   };
+  
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(posts.map((p: any) => p.id)));
+    }
+  };
+  
+  const toggleSelect = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedIds(next);
+  };
+  
+  const handleBulkPublish = async () => {
+    await bulkUpdateMutation.mutateAsync({
+      ids: Array.from(selectedIds),
+      updates: { status: 'published' as any, published_at: new Date().toISOString() }
+    });
+    setSelectedIds(new Set());
+  };
+  
+  const handleBulkFeature = async () => {
+    await bulkUpdateMutation.mutateAsync({
+      ids: Array.from(selectedIds),
+      updates: { featured: true }
+    });
+    setSelectedIds(new Set());
+  };
+  
+  const clearSelection = () => setSelectedIds(new Set());
 
   return (
     <div className="w-full overflow-y-auto overflow-x-hidden p-4 h-full">
@@ -198,6 +239,42 @@ export function ArtigosContent() {
           </div>
         </div>
 
+        {someSelected && (
+          <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <span className="text-sm font-medium text-amber-800">
+              {selectedIds.size} selecionado{selectedIds.size > 1 ? 's' : ''}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleBulkPublish}
+              disabled={bulkUpdateMutation.isPending}
+              className="h-8 gap-1.5"
+            >
+              <Check className="size-3.5" />
+              Publicar
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleBulkFeature}
+              disabled={bulkUpdateMutation.isPending}
+              className="h-8 gap-1.5"
+            >
+              <Star className="size-3.5" />
+              Destacar
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={clearSelection}
+              className="h-8"
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -232,7 +309,11 @@ export function ArtigosContent() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="w-[40px]">
-                  <Checkbox />
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Selecionar todos"
+                  />
                 </TableHead>
                 <TableHead>Título</TableHead>
                 <TableHead className="w-[100px]">Autor</TableHead>
@@ -255,7 +336,11 @@ export function ArtigosContent() {
                   className="cursor-pointer"
                 >
                   <TableCell>
-                    <Checkbox />
+                    <Checkbox
+                      checked={selectedIds.has(post.id)}
+                      onCheckedChange={() => toggleSelect(post.id)}
+                      aria-label={`Selecionar ${post.title}`}
+                    />
                   </TableCell>
                   <TableCell className="font-medium">
                     <Link to="/artigos/$id/editar" params={{ id: post.id }} className="hover:underline">
@@ -304,7 +389,7 @@ export function ArtigosContent() {
         </div>
 
         {totalPages > 1 && (
-          <Pagination>
+          <Pagination className="mx-0 w-auto justify-start">
             <PaginationContent>
               <PaginationItem>
                 <PaginationPrevious 

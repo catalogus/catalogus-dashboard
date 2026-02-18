@@ -17,14 +17,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { useOrders, useOrderStats, useUpdateOrder } from "@/hooks/use-supabase";
+import { toast } from "sonner";
+
+const PAGE_SIZE = 10;
 
 export function PedidosContent() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
-  const { data: orders, isLoading, error } = useOrders(selectedStatus);
+  const [page, setPage] = useState(1);
+  const { data: ordersData, isLoading, error } = useOrders(selectedStatus, page, PAGE_SIZE, debouncedSearch);
   const { data: stats } = useOrderStats();
   const updateMutation = useUpdateOrder();
+
+  const orders = ordersData?.data || [];
+  const totalPages = ordersData?.totalPages || 1;
+  const totalCount = ordersData?.totalCount || 0;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -52,20 +69,23 @@ export function PedidosContent() {
   };
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
-    await updateMutation.mutateAsync({ id: orderId, status: newStatus as any });
+    const promise = updateMutation.mutateAsync({ id: orderId, status: newStatus as any });
+    toast.promise(promise, {
+      loading: "A actualizar estado do pedido...",
+      success: "Estado do pedido actualizado com sucesso",
+      error: "Não foi possível actualizar o estado do pedido",
+    });
+    await promise;
   };
 
-  const filteredOrders = orders?.filter((order) => {
-    if (searchQuery) {
-      const searchLower = searchQuery.toLowerCase();
-      return (
-        order.customer_name.toLowerCase().includes(searchLower) ||
-        order.customer_email.toLowerCase().includes(searchLower) ||
-        order.order_number.toLowerCase().includes(searchLower)
-      );
-    }
-    return true;
-  });
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+    setPage(1);
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(value);
+    }, 300);
+    return () => clearTimeout(timeout);
+  };
 
   if (isLoading) {
     return (
@@ -130,11 +150,17 @@ export function PedidosContent() {
             <Input
               placeholder="Buscar por nome, email ou número do pedido..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
               className="pl-10"
             />
           </div>
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+          <Select
+            value={selectedStatus}
+            onValueChange={(value) => {
+              setSelectedStatus(value);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Todos os estados" />
             </SelectTrigger>
@@ -162,7 +188,7 @@ export function PedidosContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrders?.map((order) => (
+              {orders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">{order.order_number}</TableCell>
                   <TableCell>
@@ -192,7 +218,7 @@ export function PedidosContent() {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredOrders?.length === 0 && (
+              {orders.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     Nenhum pedido encontrado.
@@ -201,6 +227,52 @@ export function PedidosContent() {
               )}
             </TableBody>
           </Table>
+        </div>
+
+        <div className="flex items-center justify-start gap-8">
+          <p className="text-sm text-muted-foreground whitespace-nowrap shrink-0">
+            A mostrar {orders.length} de {totalCount} pedido(s)
+          </p>
+          <Pagination className="mx-0 w-auto justify-start">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (page > 1) setPage(page - 1);
+                  }}
+                  className={page <= 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <PaginationItem key={pageNum}>
+                  <PaginationLink
+                    href="#"
+                    isActive={pageNum === page}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPage(pageNum);
+                    }}
+                  >
+                    {pageNum}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (page < totalPages) setPage(page + 1);
+                  }}
+                  className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       </div>
     </div>

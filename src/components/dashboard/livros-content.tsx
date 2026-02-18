@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, MoreHorizontal, FileEdit, Trash2, Search, BookOpen } from "lucide-react";
+import { Plus, MoreHorizontal, FileEdit, Trash2, Search, BookOpen, Upload, Loader2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -49,8 +49,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useBooks, useBookStats, useCreateBook, useUpdateBook, useDeleteBook } from "@/hooks/use-supabase";
+import { useBooks, useBookStats, useCreateBook, useUpdateBook, useDeleteBook, useUploadFile } from "@/hooks/use-supabase";
 import type { Book } from "@/lib/supabase";
+import { validateAndOptimizeImage } from "@/lib/imageOptimization";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 10;
 
@@ -62,16 +64,32 @@ export function LivrosContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [coverImageUrl, setCoverImageUrl] = useState("");
+  const [coverImagePath, setCoverImagePath] = useState("");
+  const [isOptimizingCover, setIsOptimizingCover] = useState(false);
+  const [coverOptimizationStats, setCoverOptimizationStats] = useState<{
+    originalSizeMB: string;
+    optimizedSizeMB: string;
+  } | null>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   
   const { data: booksData, isLoading } = useBooks(page, PAGE_SIZE, debouncedSearch);
   const { data: stats } = useBookStats();
   const createMutation = useCreateBook();
   const updateMutation = useUpdateBook();
   const deleteMutation = useDeleteBook();
+  const uploadMutation = useUploadFile();
 
   const books = booksData?.data || [];
   const totalPages = booksData?.totalPages || 1;
   const totalCount = booksData?.totalCount || 0;
+
+  const extractStoragePathFromPublicUrl = (publicUrl: string, bucket: string) => {
+    const marker = `/storage/v1/object/public/${bucket}/`;
+    const markerIndex = publicUrl.indexOf(marker);
+    if (markerIndex === -1) return "";
+    return publicUrl.slice(markerIndex + marker.length);
+  };
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
@@ -80,6 +98,39 @@ export function LivrosContent() {
       setDebouncedSearch(value);
     }, 300);
     return () => clearTimeout(timeout);
+  };
+
+  const handleCoverSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsOptimizingCover(true);
+    setCoverOptimizationStats(null);
+
+    try {
+      const originalSizeMB = (file.size / 1024 / 1024).toFixed(2);
+      const optimizedFile = await validateAndOptimizeImage(file, "bookCover");
+      const optimizedSizeMB = (optimizedFile.size / 1024 / 1024).toFixed(2);
+
+      const publicUrl = await uploadMutation.mutateAsync({
+        file: optimizedFile,
+        bucket: "covers",
+        folder: "",
+      });
+
+      setCoverImageUrl(publicUrl);
+      setCoverImagePath(extractStoragePathFromPublicUrl(publicUrl, "covers"));
+      setCoverOptimizationStats({ originalSizeMB, optimizedSizeMB });
+      toast.success(`Capa otimizada: ${originalSizeMB}MB -> ${optimizedSizeMB}MB`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao processar capa";
+      toast.error(message);
+    } finally {
+      setIsOptimizingCover(false);
+      if (coverInputRef.current) {
+        coverInputRef.current.value = "";
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -99,6 +150,8 @@ export function LivrosContent() {
       publisher: formData.get('publisher') as string || null,
       category: formData.get('category') as string || null,
       language: (formData.get('language') as 'pt' | 'en') || 'pt',
+      cover_url: coverImageUrl || null,
+      cover_path: coverImagePath || null,
       promo_type: formData.get('promoType') === 'no-promo' ? null : formData.get('promoType') as string,
       promo_price_mzn: parseFloat(formData.get('promoPrice') as string) || null,
       promo_start_date: formData.get('promoStart') as string || null,
@@ -117,6 +170,9 @@ export function LivrosContent() {
 
   const handleEdit = (book: Book) => {
     setEditingBook(book);
+    setCoverImageUrl(book.cover_url || "");
+    setCoverImagePath(book.cover_path || "");
+    setCoverOptimizationStats(null);
     setIsSheetOpen(true);
   };
 
@@ -194,6 +250,9 @@ export function LivrosContent() {
             className="h-9 gap-1.5 bg-amber-600 hover:bg-amber-700"
             onClick={() => {
               setEditingBook(null);
+              setCoverImageUrl("");
+              setCoverImagePath("");
+              setCoverOptimizationStats(null);
               setIsSheetOpen(true);
             }}
           >
@@ -340,7 +399,7 @@ export function LivrosContent() {
         </div>
 
         {totalPages > 1 && (
-          <Pagination>
+          <Pagination className="mx-0 w-auto justify-start">
             <PaginationContent>
               <PaginationItem>
                 <PaginationPrevious 
@@ -508,7 +567,12 @@ export function LivrosContent() {
       {/* Edit/Create Sheet */}
       <Sheet open={isSheetOpen} onOpenChange={(open) => {
         setIsSheetOpen(open);
-        if (!open) setEditingBook(null);
+        if (!open) {
+          setEditingBook(null);
+          setCoverImageUrl("");
+          setCoverImagePath("");
+          setCoverOptimizationStats(null);
+        }
       }}>
         <SheetContent className="w-full sm:max-w-lg p-0 flex flex-col">
           <SheetHeader className="space-y-2.5 px-6 py-4 border-b shrink-0">
@@ -540,6 +604,80 @@ export function LivrosContent() {
                   rows={4}
                   defaultValue={editingBook?.description || ''}
                 />
+              </div>
+
+              <div className="space-y-3">
+                <Label>Capa do Livro</Label>
+                <div className="border-2 border-dashed rounded-lg p-4 bg-muted/50 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <input
+                      ref={coverInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleCoverSelect}
+                      disabled={isOptimizingCover || uploadMutation.isPending}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => coverInputRef.current?.click()}
+                      disabled={isOptimizingCover || uploadMutation.isPending}
+                    >
+                      {isOptimizingCover || uploadMutation.isPending ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Upload className="size-4" />
+                      )}
+                      Upload capa
+                    </Button>
+                    <div className="flex flex-col text-sm text-muted-foreground">
+                      <span className="font-medium">
+                        {isOptimizingCover ? 'Otimizando capa...' : coverImageUrl ? 'Capa carregada' : 'Nenhuma capa'}
+                      </span>
+                      {coverOptimizationStats ? (
+                        <span className="text-xs text-emerald-600">
+                          Otimizada: {coverOptimizationStats.originalSizeMB}MB {'->'} {coverOptimizationStats.optimizedSizeMB}MB
+                        </span>
+                      ) : (
+                        <span className="text-xs">JPG/PNG/WebP, até 50MB</span>
+                      )}
+                    </div>
+                    {coverImageUrl && (
+                      <img
+                        src={coverImageUrl}
+                        alt="Preview capa"
+                        className="h-14 w-10 rounded border object-cover ml-auto"
+                      />
+                    )}
+                  </div>
+
+                  <Input
+                    value={coverImageUrl}
+                    onChange={(e) => {
+                      setCoverImageUrl(e.target.value);
+                      setCoverImagePath("");
+                    }}
+                    placeholder="URL da capa (opcional)"
+                  />
+
+                  {coverImageUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={() => {
+                        setCoverImageUrl("");
+                        setCoverImagePath("");
+                        setCoverOptimizationStats(null);
+                      }}
+                    >
+                      Remover capa
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -675,6 +813,9 @@ export function LivrosContent() {
                   onClick={() => {
                     setIsSheetOpen(false);
                     setEditingBook(null);
+                    setCoverImageUrl("");
+                    setCoverImagePath("");
+                    setCoverOptimizationStats(null);
                   }}
                 >
                   Cancelar
@@ -682,7 +823,7 @@ export function LivrosContent() {
                 <Button
                   type="submit"
                   className="flex-1 bg-amber-600 hover:bg-amber-700"
-                  disabled={createMutation.isPending || updateMutation.isPending}
+                  disabled={createMutation.isPending || updateMutation.isPending || isOptimizingCover || uploadMutation.isPending}
                 >
                   {editingBook ? 'Guardar' : 'Adicionar'}
                 </Button>
