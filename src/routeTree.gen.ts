@@ -18,6 +18,8 @@ import { Route as LivrosIndexRouteImport } from './routes/livros/index'
 import { Route as HeroSlidesIndexRouteImport } from './routes/hero-slides/index'
 import { Route as AutoresIndexRouteImport } from './routes/autores/index'
 import { Route as ArtigosIndexRouteImport } from './routes/artigos/index'
+import { Route as ArtigosNovoRouteImport } from './routes/artigos/novo'
+import { Route as ArtigosIdEditarRouteImport } from './routes/artigos/$id/editar'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,9 +66,20 @@ const ArtigosIndexRoute = ArtigosIndexRouteImport.update({
   path: '/artigos/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ArtigosNovoRoute = ArtigosNovoRouteImport.update({
+  id: '/artigos/novo',
+  path: '/artigos/novo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArtigosIdEditarRoute = ArtigosIdEditarRouteImport.update({
+  id: '/artigos/$id/editar',
+  path: '/artigos/$id/editar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/artigos/novo': typeof ArtigosNovoRoute
   '/artigos/': typeof ArtigosIndexRoute
   '/autores/': typeof AutoresIndexRoute
   '/hero-slides/': typeof HeroSlidesIndexRoute
@@ -75,9 +88,11 @@ export interface FileRoutesByFullPath {
   '/pedidos/': typeof PedidosIndexRoute
   '/reivindicacoes/': typeof ReivindicacoesIndexRoute
   '/usuarios/': typeof UsuariosIndexRoute
+  '/artigos/$id/editar': typeof ArtigosIdEditarRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/artigos/novo': typeof ArtigosNovoRoute
   '/artigos': typeof ArtigosIndexRoute
   '/autores': typeof AutoresIndexRoute
   '/hero-slides': typeof HeroSlidesIndexRoute
@@ -86,10 +101,12 @@ export interface FileRoutesByTo {
   '/pedidos': typeof PedidosIndexRoute
   '/reivindicacoes': typeof ReivindicacoesIndexRoute
   '/usuarios': typeof UsuariosIndexRoute
+  '/artigos/$id/editar': typeof ArtigosIdEditarRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/artigos/novo': typeof ArtigosNovoRoute
   '/artigos/': typeof ArtigosIndexRoute
   '/autores/': typeof AutoresIndexRoute
   '/hero-slides/': typeof HeroSlidesIndexRoute
@@ -98,11 +115,13 @@ export interface FileRoutesById {
   '/pedidos/': typeof PedidosIndexRoute
   '/reivindicacoes/': typeof ReivindicacoesIndexRoute
   '/usuarios/': typeof UsuariosIndexRoute
+  '/artigos/$id/editar': typeof ArtigosIdEditarRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/artigos/novo'
     | '/artigos/'
     | '/autores/'
     | '/hero-slides/'
@@ -111,9 +130,11 @@ export interface FileRouteTypes {
     | '/pedidos/'
     | '/reivindicacoes/'
     | '/usuarios/'
+    | '/artigos/$id/editar'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/artigos/novo'
     | '/artigos'
     | '/autores'
     | '/hero-slides'
@@ -122,9 +143,11 @@ export interface FileRouteTypes {
     | '/pedidos'
     | '/reivindicacoes'
     | '/usuarios'
+    | '/artigos/$id/editar'
   id:
     | '__root__'
     | '/'
+    | '/artigos/novo'
     | '/artigos/'
     | '/autores/'
     | '/hero-slides/'
@@ -133,10 +156,12 @@ export interface FileRouteTypes {
     | '/pedidos/'
     | '/reivindicacoes/'
     | '/usuarios/'
+    | '/artigos/$id/editar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ArtigosNovoRoute: typeof ArtigosNovoRoute
   ArtigosIndexRoute: typeof ArtigosIndexRoute
   AutoresIndexRoute: typeof AutoresIndexRoute
   HeroSlidesIndexRoute: typeof HeroSlidesIndexRoute
@@ -145,6 +170,7 @@ export interface RootRouteChildren {
   PedidosIndexRoute: typeof PedidosIndexRoute
   ReivindicacoesIndexRoute: typeof ReivindicacoesIndexRoute
   UsuariosIndexRoute: typeof UsuariosIndexRoute
+  ArtigosIdEditarRoute: typeof ArtigosIdEditarRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -212,11 +238,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ArtigosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/artigos/novo': {
+      id: '/artigos/novo'
+      path: '/artigos/novo'
+      fullPath: '/artigos/novo'
+      preLoaderRoute: typeof ArtigosNovoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/artigos/$id/editar': {
+      id: '/artigos/$id/editar'
+      path: '/artigos/$id/editar'
+      fullPath: '/artigos/$id/editar'
+      preLoaderRoute: typeof ArtigosIdEditarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ArtigosNovoRoute: ArtigosNovoRoute,
   ArtigosIndexRoute: ArtigosIndexRoute,
   AutoresIndexRoute: AutoresIndexRoute,
   HeroSlidesIndexRoute: HeroSlidesIndexRoute,
@@ -225,6 +266,7 @@ const rootRouteChildren: RootRouteChildren = {
   PedidosIndexRoute: PedidosIndexRoute,
   ReivindicacoesIndexRoute: ReivindicacoesIndexRoute,
   UsuariosIndexRoute: UsuariosIndexRoute,
+  ArtigosIdEditarRoute: ArtigosIdEditarRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

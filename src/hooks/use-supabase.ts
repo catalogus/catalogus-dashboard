@@ -7,6 +7,7 @@ import type {
   Order, OrderUpdate,
   Profile, ProfileInsert, ProfileUpdate,
   Publication, PublicationInsert, PublicationUpdate,
+  PostInsert, PostUpdate,
   AuthorClaimUpdate
 } from '@/lib/supabase'
 
@@ -147,6 +148,116 @@ export function usePostCategories() {
         .order('name')
       if (error) throw error
       return data
+    },
+  })
+}
+
+export function usePost(id: string | undefined) {
+  return useQuery({
+    queryKey: ['post', id],
+    queryFn: async () => {
+      if (!id) return null
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*, profiles:author_id(name, photo_url)')
+        .eq('id', id)
+        .single()
+      if (error) throw error
+      return data
+    },
+    enabled: !!id,
+  })
+}
+
+export function usePostCategoriesMap(postId: string | undefined) {
+  return useQuery({
+    queryKey: ['post-categories-map', postId],
+    queryFn: async () => {
+      if (!postId) return []
+      const { data, error } = await supabase
+        .from('post_categories_map')
+        .select('category_id')
+        .eq('post_id', postId)
+      if (error) throw error
+      return data?.map((item: any) => item.category_id) || []
+    },
+    enabled: !!postId,
+  })
+}
+
+export function useAuthorsList() {
+  return useQuery({
+    queryKey: ['authors-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, photo_url')
+        .in('role', ['author', 'admin'])
+        .order('name')
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function useCreatePost() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ post, categories }: { post: PostInsert; categories?: string[] }) => {
+      const { data, error } = await supabase
+        .from('posts')
+        .insert(post as any)
+        .select()
+        .single()
+      if (error) throw error
+      
+      if (categories && categories.length > 0) {
+        const categoryMappings = categories.map((catId) => ({
+          post_id: data.id,
+          category_id: catId,
+        }))
+        await supabase.from('post_categories_map').insert(categoryMappings as any)
+      }
+      
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+    },
+  })
+}
+
+export function useUpdatePost() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, post, categories }: { id: string; post: PostUpdate; categories?: string[] }) => {
+      const { data, error } = await supabase
+        .from('posts')
+        .update(post as any)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      
+      if (categories !== undefined) {
+        await supabase.from('post_categories_map').delete().eq('post_id', id)
+        if (categories.length > 0) {
+          const categoryMappings = categories.map((catId) => ({
+            post_id: id,
+            category_id: catId,
+          }))
+          await supabase.from('post_categories_map').insert(categoryMappings as any)
+        }
+      }
+      
+      return data
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['post', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['post-categories-map', variables.id] })
     },
   })
 }

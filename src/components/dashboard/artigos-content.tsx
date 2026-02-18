@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Plus, Search, MoreHorizontal, Trash2, FileEdit } from "lucide-react";
 import {
@@ -106,8 +107,8 @@ export function ArtigosContent() {
     });
   };
 
-  const getVisiblePages = (): (number | 'ellipsis')[] => {
-    const visible: (number | 'ellipsis')[] = [];
+  const getVisiblePages = () => {
+    const visible = [];
     const maxVisible = 5;
     
     if (totalPages <= maxVisible) {
@@ -144,10 +145,12 @@ export function ArtigosContent() {
               Artigos
             </h1>
           </div>
-          <Button size="sm" className="h-9 gap-1.5 bg-amber-600 hover:bg-amber-700">
-            <Plus className="size-4" />
-            Novo Artigo
-          </Button>
+          <Link to="/artigos/novo">
+            <Button size="sm" className="h-9 gap-1.5 bg-amber-600 hover:bg-amber-700">
+              <Plus className="size-4" />
+              Novo Artigo
+            </Button>
+          </Link>
         </div>
 
         <div className="flex gap-2">
@@ -246,12 +249,19 @@ export function ArtigosContent() {
                     Carregando...
                   </TableCell>
                 </TableRow>
-              ) : posts?.map((post) => (
-                <TableRow key={post.id}>
+              ) : posts?.map((post: any) => (
+                <TableRow 
+                  key={post.id}
+                  className="cursor-pointer"
+                >
                   <TableCell>
                     <Checkbox />
                   </TableCell>
-                  <TableCell className="font-medium">{post.title}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link to="/artigos/$id/editar" params={{ id: post.id }} className="hover:underline">
+                      {post.title}
+                    </Link>
+                  </TableCell>
                   <TableCell>{(post.profiles as any)?.name || '-'}</TableCell>
                   <TableCell>{getStatusBadge(post.status)}</TableCell>
                   <TableCell>{getTranslationBadge(post.translation_status)}</TableCell>
@@ -266,9 +276,11 @@ export function ArtigosContent() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <FileEdit className="size-4 mr-2" />
-                          Editar
+                        <DropdownMenuItem asChild>
+                          <Link to="/artigos/$id/editar" params={{ id: post.id }}>
+                            <FileEdit className="size-4 mr-2" />
+                            Editar
+                          </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem>Duplicar</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive">
