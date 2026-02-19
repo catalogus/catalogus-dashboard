@@ -15,6 +15,9 @@ function getSectionLabel(pathname: string) {
   if (pathname.startsWith("/usuarios")) return "Usuarios";
   if (pathname.startsWith("/autores")) return "Autores";
   if (pathname.startsWith("/reivindicacoes")) return "Reivindicacoes de Autor";
+  if (pathname.startsWith("/conta")) return "Configuracoes da Conta";
+  if (pathname.startsWith("/perfil/reivindicar")) return "Reivindicar Perfil";
+  if (pathname.startsWith("/perfil")) return "Meu Perfil";
   return "Dashboard";
 }
 

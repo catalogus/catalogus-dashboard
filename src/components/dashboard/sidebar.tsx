@@ -11,6 +11,8 @@ import {
   Users,
   UserPen,
   UserCheck,
+  UserCircle,
+  Settings,
   LogOut,
 } from "lucide-react";
 import {
@@ -53,13 +55,13 @@ const adminNavItems: NavItem[] = [
   { title: "Usuários", icon: Users, href: "/usuarios", iconColor: "text-cyan-500" },
   { title: "Autores", icon: UserPen, href: "/autores", iconColor: "text-rose-500" },
   { title: "Reivindicações de Autor", icon: UserCheck, href: "/reivindicacoes", iconColor: "text-sky-500" },
+  { title: "Conta", icon: Settings, href: "/conta", iconColor: "text-zinc-500" },
 ];
 
 const authorNavItems: NavItem[] = [
-  { title: "Dashboard", icon: LayoutDashboard, href: "/", iconColor: "text-primary" },
-  { title: "Artigos", icon: FileText, href: "/artigos", iconColor: "text-blue-500" },
-  { title: "Livros", icon: Book, href: "/livros", iconColor: "text-amber-500" },
-  { title: "Pedidos", icon: ShoppingCart, href: "/pedidos", iconColor: "text-orange-500" },
+  { title: "Meu Perfil", icon: UserCircle, href: "/perfil", iconColor: "text-primary" },
+  { title: "Conta", icon: Settings, href: "/conta", iconColor: "text-zinc-500" },
+  { title: "Reivindicar Perfil", icon: UserCheck, href: "/perfil/reivindicar", iconColor: "text-sky-500" },
 ];
 
 const customerNavItems: NavItem[] = [
@@ -73,23 +75,7 @@ export function DashboardSidebar(
   props: React.ComponentProps<typeof Sidebar>
 ) {
   const location = useLocation();
-  const { user, signOut } = useAuth();
-
-  const profileQuery = useQuery({
-    queryKey: ["sidebar-profile", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-    staleTime: 60_000,
-  });
+  const { user, profile, role, signOut } = useAuth();
 
   const pendingClaimsQuery = useQuery({
     queryKey: ["sidebar-pending-claims"],
@@ -102,14 +88,36 @@ export function DashboardSidebar(
       if (error) throw error;
       return count ?? 0;
     },
-    enabled: profileQuery.data?.role === "admin",
+    enabled: role === "admin",
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
 
-  const userRole = ((profileQuery.data?.role || user?.user_metadata?.role || "admin") as UserRole);
+  const linkedAuthorQuery = useQuery({
+    queryKey: ["sidebar-linked-author", profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) return null;
+      const { data, error } = await supabase
+        .from("authors")
+        .select("claim_status")
+        .eq("profile_id", profile.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { claim_status: "unclaimed" | "pending" | "approved" | "rejected" } | null;
+    },
+    enabled: role === "author" && !!profile?.id,
+    staleTime: 30_000,
+  });
+
+  const userRole = ((role || user?.user_metadata?.role || "admin") as UserRole);
   const navItems = useMemo(() => {
-    if (userRole === "author") return authorNavItems;
+    if (userRole === "author") {
+      const linkedClaimStatus = linkedAuthorQuery.data?.claim_status;
+      const canClaimProfile =
+        linkedClaimStatus === "rejected" || (!linkedClaimStatus && profile?.status === "pending");
+
+      return authorNavItems.filter((item) => item.href !== "/perfil/reivindicar" || canClaimProfile);
+    }
     if (userRole === "customer") return customerNavItems;
 
     return adminNavItems.map((item) => {
@@ -118,11 +126,12 @@ export function DashboardSidebar(
       }
       return item;
     });
-  }, [userRole, pendingClaimsQuery.data]);
+  }, [userRole, pendingClaimsQuery.data, linkedAuthorQuery.data?.claim_status, profile?.status]);
   
   const userMetadata = user?.user_metadata as { name?: string; avatar_url?: string } | undefined;
-  const userName = userMetadata?.name || user?.email?.split('@')[0] || 'Admin';
+  const userName = profile?.name || userMetadata?.name || user?.email?.split('@')[0] || 'Admin';
   const userInitials = userName?.slice(0, 2).toUpperCase() || 'AD';
+  const userAvatar = profile?.photo_url || userMetadata?.avatar_url;
   
   return (
     <Sidebar collapsible="offcanvas" className="!border-r-0" {...props}>
@@ -180,7 +189,7 @@ export function DashboardSidebar(
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 w-full p-2 rounded-md hover:bg-sidebar-accent transition-colors">
               <Avatar className="size-8">
-                <AvatarImage src={userMetadata?.avatar_url} />
+                <AvatarImage src={userAvatar || undefined} />
                 <AvatarFallback className="bg-amber-600 text-white text-xs">{userInitials}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col items-start flex-1 min-w-0">
@@ -194,6 +203,12 @@ export function DashboardSidebar(
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuItem asChild>
+              <Link to="/conta">
+                <Settings className="size-4 mr-2" />
+                Configurações da conta
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={signOut} className="text-red-600 focus:text-red-600">
               <LogOut className="size-4 mr-2" />
               Sair

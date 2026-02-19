@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { MoreHorizontal, Search } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -25,8 +25,32 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { useOrders, useOrderStats, useUpdateOrder } from "@/hooks/use-supabase";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  useOrders,
+  useOrderStats,
+  useUpdateOrder,
+  useMpesaTransactionStatus,
+  useRefreshMpesaStatus,
+  useReverseMpesaTransaction,
+} from "@/hooks/use-supabase";
 import { toast } from "sonner";
+import type { Order } from "@/lib/supabase";
 
 const PAGE_SIZE = 10;
 
@@ -35,13 +59,26 @@ export function PedidosContent() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [page, setPage] = useState(1);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const { data: ordersData, isLoading, error } = useOrders(selectedStatus, page, PAGE_SIZE, debouncedSearch);
   const { data: stats } = useOrderStats();
   const updateMutation = useUpdateOrder();
+  const refreshMpesaMutation = useRefreshMpesaStatus();
+  const reverseMpesaMutation = useReverseMpesaTransaction();
+
+  const mpesaStatusQuery = useMpesaTransactionStatus(selectedOrder?.id);
 
   const orders = ordersData?.data || [];
   const totalPages = ordersData?.totalPages || 1;
   const totalCount = ordersData?.totalCount || 0;
+
+  const isMpesaOrder = (order: Order) =>
+    Boolean(
+      order.mpesa_transaction_id ||
+      order.mpesa_reference ||
+      order.mpesa_last_response ||
+      order.payment_method?.toLowerCase().includes("mpesa"),
+    );
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -87,6 +124,34 @@ export function PedidosContent() {
     return () => clearTimeout(timeout);
   };
 
+  const handleRefreshMpesaStatus = async (order: Order) => {
+    const promise = refreshMpesaMutation.mutateAsync(order.id);
+    toast.promise(promise, {
+      loading: "A actualizar estado M-Pesa...",
+      success: "Estado M-Pesa actualizado",
+      error: "Falha ao actualizar estado M-Pesa",
+    });
+    await promise;
+  };
+
+  const handleReverseMpesa = async (order: Order) => {
+    const confirmed = confirm("Tem certeza que deseja solicitar reversão para este pedido?");
+    if (!confirmed) return;
+
+    const promise = reverseMpesaMutation.mutateAsync({
+      orderId: order.id,
+      amount: Number(order.total),
+    });
+
+    toast.promise(promise, {
+      loading: "A enviar pedido de reversão M-Pesa...",
+      success: "Pedido de reversão enviado",
+      error: "Falha ao enviar reversão M-Pesa",
+    });
+
+    await promise;
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -117,7 +182,7 @@ export function PedidosContent() {
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="size-2 rounded-full bg-emerald-500" />
-            M-Pesa status aparecerá aqui
+            Controlo M-Pesa activo (estado e reversão)
           </div>
         </div>
 
@@ -183,8 +248,9 @@ export function PedidosContent() {
                 <TableHead className="w-[250px]">Cliente</TableHead>
                 <TableHead className="w-[120px]">Total</TableHead>
                 <TableHead className="w-[120px]">Estado</TableHead>
+                <TableHead className="w-[190px]">M-Pesa</TableHead>
                 <TableHead className="w-[120px]">Criado</TableHead>
-                <TableHead className="w-[150px]">Acções</TableHead>
+                <TableHead className="w-[120px]">Acções</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -199,28 +265,75 @@ export function PedidosContent() {
                   </TableCell>
                   <TableCell>{order.total} MTn</TableCell>
                   <TableCell>{getStatusBadge(order.status)}</TableCell>
+                  <TableCell>
+                    {isMpesaOrder(order) ? (
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">{order.mpesa_transaction_id || "Sem transacção"}</p>
+                        <p className="text-xs text-muted-foreground">{order.mpesa_reference || "Sem referência"}</p>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Sem dados M-Pesa</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{formatDate(order.created_at)}</TableCell>
                   <TableCell>
-                    <Select 
-                      defaultValue={order.status}
-                      onValueChange={(value) => handleStatusChange(order.id, value)}
-                    >
-                      <SelectTrigger className="w-[130px] h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="processing">Processando</SelectItem>
-                        <SelectItem value="paid">Pago</SelectItem>
-                        <SelectItem value="failed">Falhou</SelectItem>
-                        <SelectItem value="cancelled">Cancelado</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="ghost" size="icon" className="size-8">
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuLabel>Atualizar estado</DropdownMenuLabel>
+                        <DropdownMenuItem
+                          disabled={isMpesaOrder(order) || updateMutation.isPending}
+                          onClick={() => handleStatusChange(order.id, "processing")}
+                        >
+                          Marcar como Processando
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={isMpesaOrder(order) || updateMutation.isPending}
+                          onClick={() => handleStatusChange(order.id, "paid")}
+                        >
+                          Marcar como Pago
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={isMpesaOrder(order) || updateMutation.isPending}
+                          onClick={() => handleStatusChange(order.id, "failed")}
+                        >
+                          Marcar como Falhou
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={isMpesaOrder(order) || updateMutation.isPending}
+                          onClick={() => handleStatusChange(order.id, "cancelled")}
+                        >
+                          Marcar como Cancelado
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          disabled={!isMpesaOrder(order) || refreshMpesaMutation.isPending}
+                          onClick={() => handleRefreshMpesaStatus(order)}
+                        >
+                          Atualizar estado M-Pesa
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={!isMpesaOrder(order) || reverseMpesaMutation.isPending}
+                          onClick={() => handleReverseMpesa(order)}
+                        >
+                          Reverter
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setSelectedOrder(order)}>
+                          Detalhes
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
               {orders.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     Nenhum pedido encontrado.
                   </TableCell>
                 </TableRow>
@@ -275,6 +388,64 @@ export function PedidosContent() {
           </Pagination>
         </div>
       </div>
+
+      <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes M-Pesa</DialogTitle>
+            <DialogDescription>
+              {selectedOrder
+                ? `Pedido ${selectedOrder.order_number}`
+                : "Detalhes da transacção"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedOrder && (
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Transacção</p>
+                  <p className="font-medium break-all">{selectedOrder.mpesa_transaction_id || "-"}</p>
+                </div>
+                <div className="rounded-md border p-3">
+                  <p className="text-xs text-muted-foreground">Referência</p>
+                  <p className="font-medium break-all">{selectedOrder.mpesa_reference || "-"}</p>
+                </div>
+              </div>
+
+              <div className="rounded-md border p-3">
+                <p className="text-xs text-muted-foreground mb-2">Histórico de estados (RPC)</p>
+                {mpesaStatusQuery.isLoading ? (
+                  <p className="text-muted-foreground">A carregar histórico...</p>
+                ) : mpesaStatusQuery.isError ? (
+                  <p className="text-red-500">Falha ao carregar histórico M-Pesa.</p>
+                ) : (mpesaStatusQuery.data?.length || 0) === 0 ? (
+                  <p className="text-muted-foreground">Sem eventos registados.</p>
+                ) : (
+                  <div className="space-y-2 max-h-52 overflow-auto pr-1">
+                    {mpesaStatusQuery.data?.map((event) => (
+                      <div key={`${event.transaction_id}-${event.created_at}`} className="rounded border p-2">
+                        <p className="font-medium">{event.status}</p>
+                        <p className="text-xs text-muted-foreground">{event.result_desc}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(event.created_at).toLocaleString('pt-MZ')}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-md border p-3">
+                <p className="text-xs text-muted-foreground mb-2">Última resposta do gateway</p>
+                <pre className="max-h-52 overflow-auto text-xs bg-muted/40 rounded p-2 whitespace-pre-wrap break-all">
+                  {selectedOrder.mpesa_last_response
+                    ? JSON.stringify(selectedOrder.mpesa_last_response, null, 2)
+                    : "Sem resposta armazenada."}
+                </pre>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

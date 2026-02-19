@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,7 +37,7 @@ export function LoginPage() {
             Catalogus CMS
           </CardTitle>
           <CardDescription className="text-center">
-            Entre com suas credenciais de administrador
+            Entre com suas credenciais
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -75,6 +75,13 @@ export function LoginPage() {
             >
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>
+
+            <Link
+              to="/auth/forgot-password"
+              className="block text-center text-sm underline text-muted-foreground hover:text-foreground"
+            >
+              Esqueceu a senha?
+            </Link>
           </form>
         </CardContent>
       </Card>

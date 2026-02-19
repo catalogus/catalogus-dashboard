@@ -883,6 +883,80 @@ export function useOrderStats() {
   })
 }
 
+export type MpesaTransactionStatus = {
+  completed_at: string
+  created_at: string
+  result_desc: string
+  status: string
+  transaction_id: string
+}
+
+export function useMpesaTransactionStatus(orderId?: string) {
+  return useQuery({
+    queryKey: ['mpesa-status', orderId],
+    queryFn: async () => {
+      if (!orderId) return [] as MpesaTransactionStatus[]
+
+      const { data, error } = await supabase.rpc('get_mpesa_transaction_status', {
+        p_order_id: orderId,
+      })
+
+      if (error) throw error
+      return (data ?? []) as MpesaTransactionStatus[]
+    },
+    enabled: !!orderId,
+    staleTime: 30_000,
+  })
+}
+
+export function useRefreshMpesaStatus() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke('mpesa-admin', {
+        body: { action: 'status', orderId },
+      })
+
+      if (error) throw error
+      if (!data?.success) {
+        throw new Error(data?.message || 'Falha ao actualizar estado M-Pesa')
+      }
+
+      return data as { success: boolean; message?: string }
+    },
+    onSuccess: async (_data, orderId) => {
+      await queryClient.invalidateQueries({ queryKey: ['orders'] })
+      await queryClient.invalidateQueries({ queryKey: ['order-stats'] })
+      await queryClient.invalidateQueries({ queryKey: ['mpesa-status', orderId] })
+    },
+  })
+}
+
+export function useReverseMpesaTransaction() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ orderId, amount }: { orderId: string; amount?: number }) => {
+      const { data, error } = await supabase.functions.invoke('mpesa-admin', {
+        body: { action: 'reverse', orderId, amount },
+      })
+
+      if (error) throw error
+      if (!data?.success) {
+        throw new Error(data?.message || 'Falha ao reverter transaccao M-Pesa')
+      }
+
+      return data as { success: boolean; message?: string }
+    },
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ['orders'] })
+      await queryClient.invalidateQueries({ queryKey: ['order-stats'] })
+      await queryClient.invalidateQueries({ queryKey: ['mpesa-status', variables.orderId] })
+    },
+  })
+}
+
 export function useUpdateOrder() {
   const queryClient = useQueryClient()
   return useMutation({
