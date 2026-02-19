@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { logAuditEvent } from "@/lib/audit";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 
@@ -131,6 +132,14 @@ export function AccountSettingsContent() {
       setAvatarFile(null);
     },
     onSuccess: async () => {
+      await logAuditEvent({
+        action: 'account.profile_updated',
+        entityType: 'profiles',
+        entityId: user?.id,
+        outcome: 'success',
+        summary: 'Dados de perfil actualizados nas configurações da conta',
+        changedFields: ['name', 'phone', 'photo_path', 'photo_url'],
+      })
       await refreshProfile();
       toast.success("Conta actualizada com sucesso");
     },
@@ -158,6 +167,14 @@ export function AccountSettingsContent() {
       if (profileError) throw profileError;
     },
     onSuccess: async () => {
+      await logAuditEvent({
+        action: 'account.email_change_requested',
+        entityType: 'profiles',
+        entityId: user?.id,
+        outcome: 'success',
+        summary: 'Pedido de alteração de email enviado',
+        changedFields: ['email'],
+      })
       await refreshProfile();
       setEmailCurrentPassword("");
       setNewEmail("");
@@ -180,6 +197,13 @@ export function AccountSettingsContent() {
       if (error) throw error;
     },
     onSuccess: () => {
+      logAuditEvent({
+        action: 'account.password_changed',
+        entityType: 'profiles',
+        entityId: user?.id,
+        outcome: 'success',
+        summary: 'Senha da conta foi actualizada',
+      })
       setPasswordCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");

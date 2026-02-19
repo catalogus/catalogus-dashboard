@@ -114,6 +114,66 @@ export type Database = {
           },
         ]
       }
+      audit_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: Database["public"]["Enums"]["user_role"] | null
+          changed_fields: Json
+          entity_id: string | null
+          entity_type: string
+          id: string
+          meta: Json
+          occurred_at: string
+          outcome: string
+          summary: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: Database["public"]["Enums"]["user_role"] | null
+          changed_fields?: Json
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          meta?: Json
+          occurred_at?: string
+          outcome?: string
+          summary?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: Database["public"]["Enums"]["user_role"] | null
+          changed_fields?: Json
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          meta?: Json
+          occurred_at?: string
+          outcome?: string
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       authors: {
         Row: {
           author_gallery: Json | null
@@ -1377,6 +1437,18 @@ export type Database = {
       get_shop_metadata: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       is_service_role: { Args: never; Returns: boolean }
+      log_audit_event: {
+        Args: {
+          p_action: string
+          p_changed_fields?: Json
+          p_entity_id?: string | null
+          p_entity_type: string
+          p_meta?: Json
+          p_outcome?: string
+          p_summary?: string | null
+        }
+        Returns: string
+      }
       mark_order_failed: {
         Args: {
           p_order_id: string
@@ -1395,6 +1467,10 @@ export type Database = {
           p_transaction_id: string
         }
         Returns: Json
+      }
+      purge_old_audit_events: {
+        Args: { p_days?: number }
+        Returns: number
       }
     }
     Enums: {

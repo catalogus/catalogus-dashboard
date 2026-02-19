@@ -13,6 +13,7 @@ import {
   UserCheck,
   UserCircle,
   Settings,
+  Activity,
   LogOut,
 } from "lucide-react";
 import {
@@ -55,6 +56,7 @@ const adminNavItems: NavItem[] = [
   { title: "Usuários", icon: Users, href: "/usuarios", iconColor: "text-cyan-500" },
   { title: "Autores", icon: UserPen, href: "/autores", iconColor: "text-rose-500" },
   { title: "Reivindicações de Autor", icon: UserCheck, href: "/reivindicacoes", iconColor: "text-sky-500" },
+  { title: "Atividade", icon: Activity, href: "/atividade", iconColor: "text-emerald-500" },
   { title: "Conta", icon: Settings, href: "/conta", iconColor: "text-zinc-500" },
 ];
 

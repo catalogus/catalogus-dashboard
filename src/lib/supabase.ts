@@ -51,4 +51,7 @@ export type AuthorClaim = Tables<'author_claims'>
 export type AuthorClaimInsert = TablesInsert<'author_claims'>
 export type AuthorClaimUpdate = TablesUpdate<'author_claims'>
 
+export type AuditEvent = Tables<'audit_events'>
+export type AuditEventInsert = TablesInsert<'audit_events'>
+
 export type BookShop = Database['public']['Views']['books_shop']['Row']

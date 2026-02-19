@@ -13,6 +13,16 @@ type RequestBody = {
   amount?: number
 }
 
+type AuditInput = {
+  actorId: string
+  actorName?: string | null
+  action: string
+  entityId?: string | null
+  outcome: 'success' | 'error'
+  summary?: string
+  meta?: Record<string, unknown>
+}
+
 const textEncoder = new TextEncoder()
 
 const toHex = (bytes: ArrayBuffer) =>
@@ -52,6 +62,25 @@ const json = (status: number, payload: unknown) =>
     },
   })
 
+const writeAuditEvent = async (supabase: ReturnType<typeof createClient>, input: AuditInput) => {
+  const { error } = await supabase.from('audit_events').insert({
+    actor_id: input.actorId,
+    actor_role: 'admin',
+    actor_name: input.actorName ?? null,
+    action: input.action,
+    entity_type: 'orders',
+    entity_id: input.entityId ?? null,
+    outcome: input.outcome,
+    summary: input.summary ?? null,
+    changed_fields: [],
+    meta: input.meta ?? {},
+  })
+
+  if (error) {
+    console.error('Failed to write audit event from mpesa-admin:', error)
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -89,7 +118,7 @@ Deno.serve(async (req) => {
 
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, name')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -126,6 +155,14 @@ Deno.serve(async (req) => {
     .maybeSingle()
 
   if (orderError || !order) {
+    await writeAuditEvent(supabase, {
+      actorId: user.id,
+      actorName: profile.name,
+      action: action === 'status' ? 'payment.mpesa_status_checked' : 'payment.mpesa_reverse_requested',
+      entityId: orderId,
+      outcome: 'error',
+      summary: 'Pedido não encontrado para operação M-Pesa',
+    })
     return json(404, { success: false, message: 'Order not found' })
   }
 
@@ -169,6 +206,21 @@ Deno.serve(async (req) => {
   }
 
   if (!gatewayResponse.ok) {
+    await writeAuditEvent(supabase, {
+      actorId: user.id,
+      actorName: profile.name,
+      action: action === 'status' ? 'payment.mpesa_status_checked' : 'payment.mpesa_reverse_requested',
+      entityId: order.id,
+      outcome: 'error',
+      summary:
+        action === 'status'
+          ? 'Falha ao actualizar estado M-Pesa'
+          : 'Falha ao solicitar reversao M-Pesa',
+      meta: {
+        orderNumber: order.order_number,
+        gateway: gatewayData,
+      },
+    })
     return json(502, {
       success: false,
       message:
@@ -178,6 +230,22 @@ Deno.serve(async (req) => {
       gateway: gatewayData,
     })
   }
+
+  await writeAuditEvent(supabase, {
+    actorId: user.id,
+    actorName: profile.name,
+    action: action === 'status' ? 'payment.mpesa_status_checked' : 'payment.mpesa_reverse_requested',
+    entityId: order.id,
+    outcome: 'success',
+    summary:
+      action === 'status'
+        ? 'Estado M-Pesa actualizado com sucesso'
+        : 'Pedido de reversao enviado com sucesso',
+    meta: {
+      orderNumber: order.order_number,
+      amount: action === 'reverse' ? payload.amount : undefined,
+    },
+  })
 
   return json(200, {
     success: true,

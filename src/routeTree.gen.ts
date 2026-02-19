@@ -19,6 +19,7 @@ import { Route as LivrosIndexRouteImport } from './routes/livros/index'
 import { Route as HeroSlidesIndexRouteImport } from './routes/hero-slides/index'
 import { Route as ContaIndexRouteImport } from './routes/conta/index'
 import { Route as AutoresIndexRouteImport } from './routes/autores/index'
+import { Route as AtividadeIndexRouteImport } from './routes/atividade/index'
 import { Route as ArtigosIndexRouteImport } from './routes/artigos/index'
 import { Route as PerfilReivindicarRouteImport } from './routes/perfil/reivindicar'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
@@ -77,6 +78,11 @@ const AutoresIndexRoute = AutoresIndexRouteImport.update({
   path: '/autores/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AtividadeIndexRoute = AtividadeIndexRouteImport.update({
+  id: '/atividade/',
+  path: '/atividade/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ArtigosIndexRoute = ArtigosIndexRouteImport.update({
   id: '/artigos/',
   path: '/artigos/',
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/perfil/reivindicar': typeof PerfilReivindicarRoute
   '/artigos/': typeof ArtigosIndexRoute
+  '/atividade/': typeof AtividadeIndexRoute
   '/autores/': typeof AutoresIndexRoute
   '/conta/': typeof ContaIndexRoute
   '/hero-slides/': typeof HeroSlidesIndexRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/perfil/reivindicar': typeof PerfilReivindicarRoute
   '/artigos': typeof ArtigosIndexRoute
+  '/atividade': typeof AtividadeIndexRoute
   '/autores': typeof AutoresIndexRoute
   '/conta': typeof ContaIndexRoute
   '/hero-slides': typeof HeroSlidesIndexRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/perfil/reivindicar': typeof PerfilReivindicarRoute
   '/artigos/': typeof ArtigosIndexRoute
+  '/atividade/': typeof AtividadeIndexRoute
   '/autores/': typeof AutoresIndexRoute
   '/conta/': typeof ContaIndexRoute
   '/hero-slides/': typeof HeroSlidesIndexRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/perfil/reivindicar'
     | '/artigos/'
+    | '/atividade/'
     | '/autores/'
     | '/conta/'
     | '/hero-slides/'
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/perfil/reivindicar'
     | '/artigos'
+    | '/atividade'
     | '/autores'
     | '/conta'
     | '/hero-slides'
@@ -219,6 +230,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/perfil/reivindicar'
     | '/artigos/'
+    | '/atividade/'
     | '/autores/'
     | '/conta/'
     | '/hero-slides/'
@@ -239,6 +251,7 @@ export interface RootRouteChildren {
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   PerfilReivindicarRoute: typeof PerfilReivindicarRoute
   ArtigosIndexRoute: typeof ArtigosIndexRoute
+  AtividadeIndexRoute: typeof AtividadeIndexRoute
   AutoresIndexRoute: typeof AutoresIndexRoute
   ContaIndexRoute: typeof ContaIndexRoute
   HeroSlidesIndexRoute: typeof HeroSlidesIndexRoute
@@ -323,6 +336,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AutoresIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/atividade/': {
+      id: '/atividade/'
+      path: '/atividade'
+      fullPath: '/atividade/'
+      preLoaderRoute: typeof AtividadeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/artigos/': {
       id: '/artigos/'
       path: '/artigos'
@@ -383,6 +403,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthResetPasswordRoute: AuthResetPasswordRoute,
   PerfilReivindicarRoute: PerfilReivindicarRoute,
   ArtigosIndexRoute: ArtigosIndexRoute,
+  AtividadeIndexRoute: AtividadeIndexRoute,
   AutoresIndexRoute: AutoresIndexRoute,
   ContaIndexRoute: ContaIndexRoute,
   HeroSlidesIndexRoute: HeroSlidesIndexRoute,

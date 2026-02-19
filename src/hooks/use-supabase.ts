@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { logAuditEvent } from '@/lib/audit'
 import type { 
   HeroSlide, HeroSlideInsert, HeroSlideUpdate, 
   BookInsert, BookUpdate, 
   Author, AuthorInsert, AuthorUpdate,
   Order, OrderUpdate,
   Profile, ProfileInsert, ProfileUpdate,
-  Publication, PublicationInsert, PublicationUpdate,
+  Publication, PublicationInsert, PublicationUpdate, AuditEvent,
   PostInsert, PostUpdate
 } from '@/lib/supabase'
 
@@ -925,10 +926,27 @@ export function useRefreshMpesaStatus() {
 
       return data as { success: boolean; message?: string }
     },
-    onSuccess: async (_data, orderId) => {
+    onSuccess: async (data, orderId) => {
+      await logAuditEvent({
+        action: 'payment.mpesa_status_checked',
+        entityType: 'orders',
+        entityId: orderId,
+        outcome: 'success',
+        summary: data?.message || 'Estado M-Pesa actualizado',
+        changedFields: ['mpesa_last_response'],
+      })
       await queryClient.invalidateQueries({ queryKey: ['orders'] })
       await queryClient.invalidateQueries({ queryKey: ['order-stats'] })
       await queryClient.invalidateQueries({ queryKey: ['mpesa-status', orderId] })
+    },
+    onError: async (error: any, orderId) => {
+      await logAuditEvent({
+        action: 'payment.mpesa_status_checked',
+        entityType: 'orders',
+        entityId: orderId,
+        outcome: 'error',
+        summary: error?.message || 'Falha ao actualizar estado M-Pesa',
+      })
     },
   })
 }
@@ -949,10 +967,32 @@ export function useReverseMpesaTransaction() {
 
       return data as { success: boolean; message?: string }
     },
-    onSuccess: async (_data, variables) => {
+    onSuccess: async (data, variables) => {
+      await logAuditEvent({
+        action: 'payment.mpesa_reverse_requested',
+        entityType: 'orders',
+        entityId: variables.orderId,
+        outcome: 'success',
+        summary: data?.message || 'Pedido de reversao M-Pesa enviado',
+        meta: {
+          amount: variables.amount ?? null,
+        },
+      })
       await queryClient.invalidateQueries({ queryKey: ['orders'] })
       await queryClient.invalidateQueries({ queryKey: ['order-stats'] })
       await queryClient.invalidateQueries({ queryKey: ['mpesa-status', variables.orderId] })
+    },
+    onError: async (error: any, variables) => {
+      await logAuditEvent({
+        action: 'payment.mpesa_reverse_requested',
+        entityType: 'orders',
+        entityId: variables.orderId,
+        outcome: 'error',
+        summary: error?.message || 'Falha ao solicitar reversao M-Pesa',
+        meta: {
+          amount: variables.amount ?? null,
+        },
+      })
     },
   })
 }
@@ -973,6 +1013,83 @@ export function useUpdateOrder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['order-stats'] })
+    },
+  })
+}
+
+export function useAuditEvents({
+  page = 1,
+  pageSize = 25,
+  action,
+  entityType,
+  outcome,
+  actorId,
+  search,
+}: {
+  page?: number
+  pageSize?: number
+  action?: string
+  entityType?: string
+  outcome?: string
+  actorId?: string
+  search?: string
+}) {
+  return useQuery({
+    queryKey: ['audit-events', page, pageSize, action, entityType, outcome, actorId, search],
+    queryFn: async () => {
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+
+      let query = supabase
+        .from('audit_events')
+        .select('*', { count: 'exact' })
+        .order('occurred_at', { ascending: false })
+        .range(from, to)
+
+      if (action && action !== 'all') {
+        query = query.eq('action', action)
+      }
+
+      if (entityType && entityType !== 'all') {
+        query = query.eq('entity_type', entityType)
+      }
+
+      if (outcome && outcome !== 'all') {
+        query = query.eq('outcome', outcome)
+      }
+
+      if (actorId && actorId !== 'all') {
+        query = query.eq('actor_id', actorId)
+      }
+
+      const term = search?.trim()
+      if (term) {
+        query = query.or(`summary.ilike.%${term}%,action.ilike.%${term}%,entity_type.ilike.%${term}%,actor_name.ilike.%${term}%`)
+      }
+
+      const { data, error, count } = await query
+      if (error) throw error
+
+      return {
+        data: (data ?? []) as AuditEvent[],
+        totalCount: count ?? 0,
+        totalPages: Math.ceil((count ?? 0) / pageSize),
+      }
+    },
+  })
+}
+
+export function usePurgeAuditEvents() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (days: number = 90) => {
+      const { data, error } = await supabase.rpc('purge_old_audit_events', { p_days: days })
+      if (error) throw error
+      return data as number
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['audit-events'] })
     },
   })
 }
