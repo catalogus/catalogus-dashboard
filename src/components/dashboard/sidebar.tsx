@@ -35,7 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 
 type NavItem = {

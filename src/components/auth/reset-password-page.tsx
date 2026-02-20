@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useAuth } from '@/lib/auth'
+import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

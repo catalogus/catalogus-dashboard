@@ -1,7 +1,7 @@
 import { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { useLocation, useNavigate } from '@tanstack/react-router'
-import { useAuth } from '@/lib/auth'
+import { useAuth } from '@/lib/auth-context'
 import { LoginPage } from '@/components/login-page'
 import { Button } from '@/components/ui/button'
 

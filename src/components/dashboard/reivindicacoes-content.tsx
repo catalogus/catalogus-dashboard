@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuthorClaims, useAuthorClaimStats, useReviewAuthorClaim } from "@/hooks/supabase/claims";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import type { Database } from "@/lib/database.types";
 

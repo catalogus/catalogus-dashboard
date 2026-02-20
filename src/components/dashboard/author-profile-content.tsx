@@ -22,7 +22,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { queryKeys } from "@/hooks/supabase/query-keys";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import type { AuthorUpdate, ProfileUpdate } from "@/lib/supabase";
 

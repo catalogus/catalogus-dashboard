@@ -1,26 +1,9 @@
-/* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { useEffect, useState, ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { User, Session } from '@supabase/supabase-js'
+import type { Session, User } from '@supabase/supabase-js'
 import { queryKeys } from '@/hooks/supabase/query-keys'
+import { AuthContext, type Profile } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
-import type { Database } from '@/lib/database.types'
-
-type Profile = Database['public']['Tables']['profiles']['Row']
-
-interface AuthContextType {
-  user: User | null
-  session: Session | null
-  profile: Profile | null
-  role: Profile['role'] | null
-  recoveryMode: boolean
-  loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-  signOut: () => Promise<void>
-  requestPasswordReset: (email: string) => Promise<{ error: Error | null }>
-  updatePassword: (newPassword: string) => Promise<{ error: Error | null }>
-  refreshProfile: () => Promise<void>
-}
 
 async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | null = null
@@ -36,8 +19,6 @@ async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, messag
     if (timer) clearTimeout(timer)
   }
 }
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -196,12 +177,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   )
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
 }

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { logAuditEvent } from "@/lib/audit";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import type { AuthorUpdate, ProfileUpdate } from "@/lib/supabase";
 
