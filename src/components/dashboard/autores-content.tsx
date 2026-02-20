@@ -50,15 +50,31 @@ import {
 } from "@/components/ui/select";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useAuthors, useAuthorStats, useCreateAuthor, useUpdateAuthor, useDeleteAuthor } from "@/hooks/supabase/authors";
+import { supabase } from "@/lib/supabase";
 import type { Author } from "@/lib/supabase";
 
 const PAGE_SIZE = 10;
+
+const LEGACY_AUTHOR_TYPE_MAP: Record<string, string> = {
+  writer: "Escritor",
+  poet: "Poeta",
+  researcher: "Investigador",
+  journalist: "Jornalista",
+  other: "Outro",
+};
+
+const normalizeAuthorType = (value: string | null | undefined) => {
+  if (!value) return "";
+  return LEGACY_AUTHOR_TYPE_MAP[value] ?? value;
+};
 
 export function AutoresContent() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [editingAuthor, setEditingAuthor] = useState<Author | null>(null);
   const [viewingAuthor, setViewingAuthor] = useState<Author | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [page, setPage] = useState(1);
@@ -73,6 +89,25 @@ export function AutoresContent() {
   const totalPages = authorsData?.totalPages || 1;
   const totalCount = authorsData?.totalCount || 0;
 
+  const resolvePhotoUrl = (photoUrl: string | null, photoPath: string | null) => {
+    if (photoUrl) return photoUrl;
+    if (!photoPath) return null;
+    return supabase.storage.from("author-photos").getPublicUrl(photoPath).data.publicUrl;
+  };
+
+  const uploadAuthorPhoto = async (targetFile: File, ownerId: string) => {
+    const safeName = targetFile.name.replace(/\s+/g, "-");
+    const path = `${ownerId}/${Date.now()}-${safeName}`;
+    const { error: uploadError } = await supabase.storage
+      .from("author-photos")
+      .upload(path, targetFile, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from("author-photos").getPublicUrl(path);
+    return { path, publicUrl: data.publicUrl };
+  };
+
   const handleSearch = (value: string) => {
     setSearchQuery(value);
     setPage(1);
@@ -81,39 +116,62 @@ export function AutoresContent() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
-    const authorData = {
-      name: formData.get('name') as string,
-      author_type: formData.get('authorType') as string || null,
+    const selectedPhoto = formData.get('photoFile');
+    const photoFile = selectedPhoto instanceof File && selectedPhoto.size > 0 ? selectedPhoto : null;
+
+    try {
+      let nextPhotoPath = editingAuthor?.photo_path || null;
+      let nextPhotoUrl = editingAuthor?.photo_url || null;
+
+      if (photoFile) {
+        setIsSavingPhoto(true);
+        if (editingAuthor?.photo_path) {
+          await supabase.storage.from("author-photos").remove([editingAuthor.photo_path]);
+        }
+        const uploaded = await uploadAuthorPhoto(photoFile, editingAuthor?.id || `author-${Date.now()}`);
+        nextPhotoPath = uploaded.path;
+        nextPhotoUrl = uploaded.publicUrl;
+      }
+
+      const authorData = {
+        name: formData.get('name') as string,
       phone: formData.get('phone') as string || null,
-      bio: formData.get('bio') as string || null,
-      birth_date: formData.get('birthDate') as string || null,
-      residence_city: formData.get('city') as string || null,
-      province: formData.get('province') as string || null,
-      featured_video: formData.get('videoUrl') as string || null,
-      social_links: {
-        website: (formData.get('website') as string) || null,
-        linkedin: (formData.get('linkedin') as string) || null,
-        facebook: (formData.get('facebook') as string) || null,
-        instagram: (formData.get('instagram') as string) || null,
-        twitter: (formData.get('twitter') as string) || null,
-        youtube: (formData.get('youtube') as string) || null,
-      },
-      featured: formData.get('featured') === 'on',
+        bio: formData.get('bio') as string || null,
+        birth_date: formData.get('birthDate') as string || null,
+        residence_city: formData.get('city') as string || null,
+        province: formData.get('province') as string || null,
+        featured_video: formData.get('videoUrl') as string || null,
+        social_links: {
+          website: (formData.get('website') as string) || null,
+          linkedin: (formData.get('linkedin') as string) || null,
+          facebook: (formData.get('facebook') as string) || null,
+          instagram: (formData.get('instagram') as string) || null,
+          twitter: (formData.get('twitter') as string) || null,
+          youtube: (formData.get('youtube') as string) || null,
+        },
+        featured: formData.get('featured') === 'on',
+      author_type: normalizeAuthorType(formData.get('authorType') as string) || null,
+      photo_url: nextPhotoUrl,
+      photo_path: nextPhotoPath,
     };
 
-    if (editingAuthor) {
-      await updateMutation.mutateAsync({ id: editingAuthor.id, ...authorData });
-    } else {
-      await createMutation.mutateAsync(authorData);
+      if (editingAuthor) {
+        await updateMutation.mutateAsync({ id: editingAuthor.id, ...authorData });
+      } else {
+        await createMutation.mutateAsync(authorData);
+      }
+
+      setIsSheetOpen(false);
+      setEditingAuthor(null);
+      setPhotoPreview(null);
+    } finally {
+      setIsSavingPhoto(false);
     }
-    
-    setIsSheetOpen(false);
-    setEditingAuthor(null);
   };
 
   const handleEdit = (author: Author) => {
     setEditingAuthor(author);
+    setPhotoPreview(resolvePhotoUrl(author.photo_url, author.photo_path));
     setIsSheetOpen(true);
   };
 
@@ -187,6 +245,7 @@ export function AutoresContent() {
             className="h-9 gap-1.5 bg-amber-600 hover:bg-amber-700"
             onClick={() => {
               setEditingAuthor(null);
+              setPhotoPreview(null);
               setIsSheetOpen(true);
             }}
           >
@@ -272,7 +331,7 @@ export function AutoresContent() {
                     {author.phone || "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {author.author_type || "—"}
+                     {normalizeAuthorType(author.author_type) || "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {author.profile_id ? (
@@ -385,7 +444,7 @@ export function AutoresContent() {
               <div className="grid grid-cols-4 gap-4">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase">Tipo</p>
-                  <p className="text-sm mt-1">{viewingAuthor.author_type || '-'}</p>
+                   <p className="text-sm mt-1">{normalizeAuthorType(viewingAuthor.author_type) || '-'}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase">Telefone</p>
@@ -460,7 +519,10 @@ export function AutoresContent() {
       {/* Edit/Create Sheet */}
       <Sheet open={isSheetOpen} onOpenChange={(open) => {
         setIsSheetOpen(open);
-        if (!open) setEditingAuthor(null);
+        if (!open) {
+          setEditingAuthor(null);
+          setPhotoPreview(null);
+        }
       }}>
         <SheetContent className="w-full sm:max-w-lg p-0 flex flex-col">
           <SheetHeader className="space-y-2.5 px-6 py-4 border-b shrink-0">
@@ -485,19 +547,44 @@ export function AutoresContent() {
                 />
               </div>
 
+              <div className="space-y-3">
+                <Label htmlFor="photoFile">Foto do Autor</Label>
+                {photoPreview && (
+                  <img
+                    src={photoPreview}
+                    alt="Pré-visualização da foto do autor"
+                    className="h-24 w-24 rounded-md object-cover border"
+                  />
+                )}
+                <Input
+                  id="photoFile"
+                  name="photoFile"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(event) => {
+                    const nextFile = event.target.files?.[0];
+                    if (!nextFile) {
+                      setPhotoPreview(editingAuthor ? resolvePhotoUrl(editingAuthor.photo_url, editingAuthor.photo_path) : null);
+                      return;
+                    }
+                    setPhotoPreview(URL.createObjectURL(nextFile));
+                  }}
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-3">
                   <Label htmlFor="authorType">Tipo de Autor</Label>
-                  <Select name="authorType" defaultValue={editingAuthor?.author_type || ''}>
+                  <Select name="authorType" defaultValue={normalizeAuthorType(editingAuthor?.author_type) || ''}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Seleccionar tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="writer">Escritor</SelectItem>
-                      <SelectItem value="poet">Poeta</SelectItem>
-                      <SelectItem value="researcher">Investigador</SelectItem>
-                      <SelectItem value="journalist">Jornalista</SelectItem>
-                      <SelectItem value="other">Outro</SelectItem>
+                      <SelectItem value="Escritor">Escritor</SelectItem>
+                      <SelectItem value="Poeta">Poeta</SelectItem>
+                      <SelectItem value="Investigador">Investigador</SelectItem>
+                      <SelectItem value="Jornalista">Jornalista</SelectItem>
+                      <SelectItem value="Outro">Outro</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -593,7 +680,7 @@ export function AutoresContent() {
                 <Button
                   type="submit"
                   className="flex-1 bg-amber-600 hover:bg-amber-700"
-                  disabled={createMutation.isPending || updateMutation.isPending}
+                  disabled={createMutation.isPending || updateMutation.isPending || isSavingPhoto}
                 >
                   {editingAuthor ? 'Guardar' : 'Criar Autor'}
                 </Button>

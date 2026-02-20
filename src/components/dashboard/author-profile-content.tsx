@@ -81,6 +81,19 @@ const defaultForm: FormState = {
   social_links: {},
 };
 
+const LEGACY_AUTHOR_TYPE_MAP: Record<string, string> = {
+  writer: "Escritor",
+  poet: "Poeta",
+  researcher: "Investigador",
+  journalist: "Jornalista",
+  other: "Outro",
+};
+
+function normalizeAuthorType(value: string | null | undefined) {
+  if (!value) return "";
+  return LEGACY_AUTHOR_TYPE_MAP[value] ?? value;
+}
+
 function normalizeSocialLinks(value: unknown): SocialLinks {
   if (!value || typeof value !== "object") return {};
   return value as SocialLinks;
@@ -209,7 +222,7 @@ export function AuthorProfileContent() {
       name: profile.name ?? "",
       phone: profile.phone ?? "",
       bio: profile.bio ?? "",
-      author_type: profile.author_type ?? "",
+      author_type: normalizeAuthorType(profile.author_type),
       birth_date: profile.birth_date ?? "",
       residence_city: profile.residence_city ?? "",
       province: profile.province ?? "",
@@ -255,7 +268,7 @@ export function AuthorProfileContent() {
       name: profile.name ?? "",
       phone: profile.phone ?? "",
       bio: profile.bio ?? "",
-      author_type: profile.author_type ?? "",
+      author_type: normalizeAuthorType(profile.author_type),
       birth_date: profile.birth_date ?? "",
       residence_city: profile.residence_city ?? "",
       province: profile.province ?? "",
@@ -667,11 +680,11 @@ export function AuthorProfileContent() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__empty">Sem tipo</SelectItem>
-                        <SelectItem value="writer">Escritor</SelectItem>
-                        <SelectItem value="poet">Poeta</SelectItem>
-                        <SelectItem value="researcher">Investigador</SelectItem>
-                        <SelectItem value="journalist">Jornalista</SelectItem>
-                        <SelectItem value="other">Outro</SelectItem>
+                        <SelectItem value="Escritor">Escritor</SelectItem>
+                        <SelectItem value="Poeta">Poeta</SelectItem>
+                        <SelectItem value="Investigador">Investigador</SelectItem>
+                        <SelectItem value="Jornalista">Jornalista</SelectItem>
+                        <SelectItem value="Outro">Outro</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
