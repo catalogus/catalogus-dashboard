@@ -1,8 +1,13 @@
+import { Suspense, lazy } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
-import { UsuariosContent } from '@/components/dashboard/usuarios-content'
 import { SidebarProvider } from '@/components/ui/sidebar'
+
+const UsuariosContent = lazy(async () => {
+  const module = await import('@/components/dashboard/usuarios-content')
+  return { default: module.UsuariosContent }
+})
 
 export const Route = createFileRoute('/usuarios/')({
   component: UsuariosPage,
@@ -16,7 +21,9 @@ function UsuariosPage() {
         <div className="lg:border lg:rounded-md overflow-hidden flex flex-col h-full w-full bg-background">
           <DashboardHeader />
           <main className="w-full flex-1 overflow-auto">
-            <UsuariosContent />
+            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Carregando usuarios...</div>}>
+              <UsuariosContent />
+            </Suspense>
           </main>
         </div>
       </div>

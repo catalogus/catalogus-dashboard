@@ -1,8 +1,13 @@
+import { Suspense, lazy } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
-import { HeroSlidesContent } from '@/components/dashboard/hero-slides-content'
 import { SidebarProvider } from '@/components/ui/sidebar'
+
+const HeroSlidesContent = lazy(async () => {
+  const module = await import('@/components/dashboard/hero-slides-content')
+  return { default: module.HeroSlidesContent }
+})
 
 export const Route = createFileRoute('/hero-slides/')({
   component: HeroSlidesPage,
@@ -16,7 +21,9 @@ function HeroSlidesPage() {
         <div className="lg:border lg:rounded-md overflow-hidden flex flex-col h-full w-full bg-background">
           <DashboardHeader />
           <main className="w-full flex-1 overflow-auto">
-            <HeroSlidesContent />
+            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Carregando hero slides...</div>}>
+              <HeroSlidesContent />
+            </Suspense>
           </main>
         </div>
       </div>

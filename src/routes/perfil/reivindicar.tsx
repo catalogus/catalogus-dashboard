@@ -1,8 +1,13 @@
+import { Suspense, lazy } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
-import { AuthorClaimProfileContent } from '@/components/dashboard/author-claim-profile-content'
 import { SidebarProvider } from '@/components/ui/sidebar'
+
+const AuthorClaimProfileContent = lazy(async () => {
+  const module = await import('@/components/dashboard/author-claim-profile-content')
+  return { default: module.AuthorClaimProfileContent }
+})
 
 export const Route = createFileRoute('/perfil/reivindicar')({
   component: ReivindicarPerfilPage,
@@ -16,7 +21,9 @@ function ReivindicarPerfilPage() {
         <div className="lg:border lg:rounded-md overflow-hidden flex flex-col h-full w-full bg-background">
           <DashboardHeader />
           <main className="w-full flex-1 overflow-auto">
-            <AuthorClaimProfileContent />
+            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Carregando reivindicacao...</div>}>
+              <AuthorClaimProfileContent />
+            </Suspense>
           </main>
         </div>
       </div>

@@ -1,8 +1,13 @@
+import { Suspense, lazy } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
-import { AuthorProfileContent } from '@/components/dashboard/author-profile-content'
 import { SidebarProvider } from '@/components/ui/sidebar'
+
+const AuthorProfileContent = lazy(async () => {
+  const module = await import('@/components/dashboard/author-profile-content')
+  return { default: module.AuthorProfileContent }
+})
 
 export const Route = createFileRoute('/perfil/')({
   component: PerfilPage,
@@ -16,7 +21,9 @@ function PerfilPage() {
         <div className="lg:border lg:rounded-md overflow-hidden flex flex-col h-full w-full bg-background">
           <DashboardHeader />
           <main className="w-full flex-1 overflow-auto">
-            <AuthorProfileContent />
+            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Carregando perfil...</div>}>
+              <AuthorProfileContent />
+            </Suspense>
           </main>
         </div>
       </div>

@@ -8,6 +8,26 @@ export default defineConfig({
         TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
         react(),
     ],
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: function (id) {
+                    if (!id.includes('node_modules'))
+                        return undefined;
+                    var inGroup = function (packages) {
+                        return packages.some(function (pkg) { return id.includes(pkg); });
+                    };
+                    if (inGroup(['pdfjs-dist']))
+                        return 'vendor-pdfjs';
+                    if (inGroup(['@supabase']))
+                        return 'vendor-supabase';
+                    if (inGroup(['@tiptap', 'prosemirror', 'linkifyjs']))
+                        return 'vendor-editor';
+                    return undefined;
+                },
+            },
+        },
+    },
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),

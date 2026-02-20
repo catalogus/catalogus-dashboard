@@ -119,6 +119,7 @@ export function MapasLiterariosContent() {
     let page_count = editingPublication?.page_count ?? 0
     let file_size_bytes = editingPublication?.file_size_bytes ?? null
     let tableOfContents = normalizeToc(values.table_of_contents)
+    let publicationInserted = false
 
     try {
       if (pdfFile) {
@@ -167,6 +168,7 @@ export function MapasLiterariosContent() {
             updated_at: new Date().toISOString(),
           })
           if (insertError) throw insertError
+          publicationInserted = true
         }
 
         await supabase
@@ -263,7 +265,7 @@ export function MapasLiterariosContent() {
         updated_at: new Date().toISOString(),
       }
 
-      if (editingPublication) {
+      if (editingPublication || publicationInserted) {
         const { error } = await supabase
           .from('publications')
           .update(payload)
