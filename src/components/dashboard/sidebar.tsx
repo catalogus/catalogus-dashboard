@@ -139,8 +139,17 @@ export function DashboardSidebar(
     <Sidebar collapsible="offcanvas" className="!border-r-0" {...props}>
       <SidebarHeader className="px-3 py-4">
         <div className="flex items-center gap-2">
-          <div className="size-8 rounded-md bg-amber-600 flex items-center justify-center text-white shrink-0">
-            <span className="text-sm font-bold">C</span>
+          <div className="size-8 rounded-md bg-sidebar-accent/50 flex items-center justify-center shrink-0 overflow-hidden">
+            <img
+              src="/catalogus-light.svg"
+              alt="Catalogus logo"
+              className="size-5 dark:hidden"
+            />
+            <img
+              src="/catalogus-dark.svg"
+              alt="Catalogus logo"
+              className="size-5 hidden dark:block"
+            />
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-sidebar-foreground text-sm">
