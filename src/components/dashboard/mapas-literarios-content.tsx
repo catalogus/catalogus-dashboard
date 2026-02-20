@@ -51,6 +51,17 @@ import {
 import { PublicationForm } from '@/components/dashboard/publication-form'
 import { toast } from 'sonner'
 
+type PdfHelpersModule = typeof import('@/lib/pdfHelpers')
+
+let pdfHelpersPreloadPromise: Promise<PdfHelpersModule> | null = null
+
+const preloadPdfHelpers = () => {
+  if (!pdfHelpersPreloadPromise) {
+    pdfHelpersPreloadPromise = import('@/lib/pdfHelpers')
+  }
+  return pdfHelpersPreloadPromise
+}
+
 const buildSeoTitle = (value?: string | null) => {
   const title = value?.trim()
   return title ? title : null
@@ -123,7 +134,7 @@ export function MapasLiterariosContent() {
           dataUrlToBlob,
           extractPdfOutline,
           renderAllPages,
-        } = await import('@/lib/pdfHelpers')
+        } = await preloadPdfHelpers()
 
         setProcessingProgress({ status: 'uploading' })
 
@@ -298,6 +309,7 @@ export function MapasLiterariosContent() {
   }
 
   const handleEdit = (pub: Publication) => {
+    void preloadPdfHelpers()
     setEditingPublication(pub)
     setProcessingProgress({ status: 'idle' })
     setIsSheetOpen(true)
@@ -390,7 +402,14 @@ export function MapasLiterariosContent() {
           <Button
             size="sm"
             className="h-9 gap-1.5 bg-amber-600 hover:bg-amber-700"
+            onPointerEnter={() => {
+              void preloadPdfHelpers()
+            }}
+            onFocus={() => {
+              void preloadPdfHelpers()
+            }}
             onClick={() => {
+              void preloadPdfHelpers()
               setEditingPublication(null)
               setProcessingProgress({ status: 'idle' })
               setIsSheetOpen(true)
@@ -477,7 +496,15 @@ export function MapasLiterariosContent() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(pub)}>
+                        <DropdownMenuItem
+                          onPointerEnter={() => {
+                            void preloadPdfHelpers()
+                          }}
+                          onFocus={() => {
+                            void preloadPdfHelpers()
+                          }}
+                          onClick={() => handleEdit(pub)}
+                        >
                           <FileEdit className="size-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
@@ -579,7 +606,17 @@ export function MapasLiterariosContent() {
               )}
 
               <div className="flex gap-2 pt-4">
-                <Button variant="outline" className="flex-1" onClick={() => { setIsDetailOpen(false); handleEdit(viewingPublication) }}>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onPointerEnter={() => {
+                    void preloadPdfHelpers()
+                  }}
+                  onFocus={() => {
+                    void preloadPdfHelpers()
+                  }}
+                  onClick={() => { setIsDetailOpen(false); handleEdit(viewingPublication) }}
+                >
                   Editar
                 </Button>
                 <Button variant="destructive" className="flex-1" onClick={() => { setIsDetailOpen(false); handleDelete(viewingPublication.id) }}>
@@ -594,6 +631,9 @@ export function MapasLiterariosContent() {
       <Sheet
         open={isSheetOpen}
         onOpenChange={(open) => {
+          if (open) {
+            void preloadPdfHelpers()
+          }
           setIsSheetOpen(open)
           if (!open) {
             setEditingPublication(null)
