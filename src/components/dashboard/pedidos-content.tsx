@@ -48,7 +48,8 @@ import {
   useMpesaTransactionStatus,
   useRefreshMpesaStatus,
   useReverseMpesaTransaction,
-} from "@/hooks/use-supabase";
+} from "@/hooks/supabase/orders";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { toast } from "sonner";
 import type { Order } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
@@ -59,7 +60,7 @@ const PAGE_SIZE = 10;
 
 export function PedidosContent() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -121,10 +122,6 @@ export function PedidosContent() {
   const handleSearch = (value: string) => {
     setSearchQuery(value);
     setPage(1);
-    const timeout = setTimeout(() => {
-      setDebouncedSearch(value);
-    }, 300);
-    return () => clearTimeout(timeout);
   };
 
   const handleRefreshMpesaStatus = async (order: Order) => {

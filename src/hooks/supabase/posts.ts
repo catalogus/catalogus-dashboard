@@ -89,30 +89,24 @@ export function usePostStats() {
   return useQuery({
     queryKey: ['post-stats'],
     queryFn: async () => {
-      const { count: published, error: e1 } = await supabase
-        .from('posts')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'published')
-      if (e1) throw e1
+      const [publishedRes, draftRes, trashRes, totalRes] = await Promise.all([
+        supabase.from('posts').select('*', { count: 'exact', head: true }).eq('status', 'published'),
+        supabase.from('posts').select('*', { count: 'exact', head: true }).eq('status', 'draft'),
+        supabase.from('posts').select('*', { count: 'exact', head: true }).eq('status', 'trash'),
+        supabase.from('posts').select('*', { count: 'exact', head: true }),
+      ])
 
-      const { count: draft, error: e2 } = await supabase
-        .from('posts')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'draft')
-      if (e2) throw e2
+      if (publishedRes.error) throw publishedRes.error
+      if (draftRes.error) throw draftRes.error
+      if (trashRes.error) throw trashRes.error
+      if (totalRes.error) throw totalRes.error
 
-      const { count: trash, error: e3 } = await supabase
-        .from('posts')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'trash')
-      if (e3) throw e3
-
-      const { count: total, error: e4 } = await supabase
-        .from('posts')
-        .select('*', { count: 'exact', head: true })
-      if (e4) throw e4
-
-      return { published: published || 0, draft: draft || 0, trash: trash || 0, total: total || 0 }
+      return {
+        published: publishedRes.count || 0,
+        draft: draftRes.count || 0,
+        trash: trashRes.count || 0,
+        total: totalRes.count || 0,
+      }
     },
   })
 }

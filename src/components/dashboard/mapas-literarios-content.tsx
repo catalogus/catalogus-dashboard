@@ -40,7 +40,7 @@ import {
 import {
   usePublications,
   usePublicationStats,
-} from '@/hooks/use-supabase'
+} from '@/hooks/supabase/publications'
 import { supabase, type Json, type Publication } from '@/lib/supabase'
 import {
   dataUrlToBlob,

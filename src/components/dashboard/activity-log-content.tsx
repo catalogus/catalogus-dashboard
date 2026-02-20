@@ -33,7 +33,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination'
-import { useAuditEvents, usePurgeAuditEvents } from '@/hooks/use-supabase'
+import { useAuditEvents, usePurgeAuditEvents } from '@/hooks/supabase/audit'
 import { supabase, type AuditEvent } from '@/lib/supabase'
 
 const PAGE_SIZE = 25

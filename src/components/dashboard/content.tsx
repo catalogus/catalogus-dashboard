@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useDashboardMetrics } from "@/hooks/use-supabase";
+import { useDashboardMetrics } from "@/hooks/supabase/dashboard";
 
 type RangePreset = "today" | "7d" | "30d" | "90d" | "custom";
 

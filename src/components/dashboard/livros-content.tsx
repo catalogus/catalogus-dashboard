@@ -40,16 +40,17 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination'
 import { Input } from '@/components/ui/input'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import {
   useBooks,
   useBookStats,
   useDeleteBook,
-  useUploadFile,
   useBookAuthorsList,
   useToggleBookActive,
   useToggleBookFeatured,
   useUpdateBookStock,
-} from '@/hooks/use-supabase'
+} from '@/hooks/supabase/books'
+import { useUploadFile } from '@/hooks/supabase/upload'
 import { supabase, type Book } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { BookForm, type BookFormValues } from '@/components/dashboard/book-form'
@@ -69,7 +70,7 @@ export function LivrosContent() {
   const [editingBook, setEditingBook] = useState<BookWithAuthors | null>(null)
   const [viewingBook, setViewingBook] = useState<BookWithAuthors | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(searchQuery, 300)
   const [page, setPage] = useState(1)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -112,10 +113,6 @@ export function LivrosContent() {
   const handleSearch = (value: string) => {
     setSearchQuery(value)
     setPage(1)
-    const timeout = setTimeout(() => {
-      setDebouncedSearch(value)
-    }, 300)
-    return () => clearTimeout(timeout)
   }
 
   const invalidateBookQueries = async () => {

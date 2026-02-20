@@ -44,7 +44,8 @@ import {
   useMovePostsToTrash,
   useRestorePostsFromTrash,
   useDeletePostsPermanently,
-} from "@/hooks/use-supabase";
+} from "@/hooks/supabase/posts";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type { Database } from "@/lib/database.types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -61,7 +62,7 @@ const PAGE_SIZE = 10;
 export function ArtigosContent() {
   const [activeTab, setActiveTab] = useState<TabStatus>("published");
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedLanguage, setSelectedLanguage] = useState<"all" | "pt" | "en">("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "title_asc" | "title_desc" | "featured">("newest");
@@ -99,10 +100,6 @@ export function ArtigosContent() {
   const handleSearch = (value: string) => {
     setSearchQuery(value);
     setPage(1);
-    const timeout = setTimeout(() => {
-      setDebouncedSearch(value);
-    }, 300);
-    return () => clearTimeout(timeout);
   };
 
   const tabs = [
@@ -256,7 +253,6 @@ export function ArtigosContent() {
 
   const clearFilters = () => {
     setSearchQuery("");
-    setDebouncedSearch("");
     setSelectedCategory("all");
     setSelectedLanguage("all");
     setSortBy("newest");

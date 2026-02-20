@@ -48,7 +48,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuthors, useAuthorStats, useCreateAuthor, useUpdateAuthor, useDeleteAuthor } from "@/hooks/use-supabase";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useAuthors, useAuthorStats, useCreateAuthor, useUpdateAuthor, useDeleteAuthor } from "@/hooks/supabase/authors";
 import type { Author } from "@/lib/supabase";
 
 const PAGE_SIZE = 10;
@@ -59,7 +60,7 @@ export function AutoresContent() {
   const [editingAuthor, setEditingAuthor] = useState<Author | null>(null);
   const [viewingAuthor, setViewingAuthor] = useState<Author | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [page, setPage] = useState(1);
   
   const { data: authorsData, isLoading } = useAuthors(page, PAGE_SIZE, debouncedSearch);
@@ -75,10 +76,6 @@ export function AutoresContent() {
   const handleSearch = (value: string) => {
     setSearchQuery(value);
     setPage(1);
-    const timeout = setTimeout(() => {
-      setDebouncedSearch(value);
-    }, 300);
-    return () => clearTimeout(timeout);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

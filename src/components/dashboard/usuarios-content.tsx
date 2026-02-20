@@ -32,7 +32,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { useProfiles, useProfileStats, useCreateProfile, useUpdateProfile, useDeleteProfile } from "@/hooks/use-supabase";
+import { useProfiles, useProfileStats, useCreateProfile, useUpdateProfile, useDeleteProfile } from "@/hooks/supabase/profiles";
 import type { Profile, ProfileInsert } from "@/lib/supabase";
 
 type ProfileFormPayload = {

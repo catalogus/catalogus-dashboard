@@ -30,32 +30,23 @@ export function useAuthorStats() {
   return useQuery({
     queryKey: ['author-stats'],
     queryFn: async () => {
-      const { count: total, error: e1 } = await supabase.from('authors').select('*', { count: 'exact', head: true })
-      if (e1) throw e1
+      const [totalRes, featuredRes, linkedProfilesRes, pendingClaimsRes] = await Promise.all([
+        supabase.from('authors').select('*', { count: 'exact', head: true }),
+        supabase.from('authors').select('*', { count: 'exact', head: true }).eq('featured', true),
+        supabase.from('authors').select('*', { count: 'exact', head: true }).not('profile_id', 'is', null),
+        supabase.from('authors').select('*', { count: 'exact', head: true }).eq('claim_status', 'pending'),
+      ])
 
-      const { count: featured, error: e2 } = await supabase
-        .from('authors')
-        .select('*', { count: 'exact', head: true })
-        .eq('featured', true)
-      if (e2) throw e2
-
-      const { count: linkedProfiles, error: e3 } = await supabase
-        .from('authors')
-        .select('*', { count: 'exact', head: true })
-        .not('profile_id', 'is', null)
-      if (e3) throw e3
-
-      const { count: pendingClaims, error: e4 } = await supabase
-        .from('authors')
-        .select('*', { count: 'exact', head: true })
-        .eq('claim_status', 'pending')
-      if (e4) throw e4
+      if (totalRes.error) throw totalRes.error
+      if (featuredRes.error) throw featuredRes.error
+      if (linkedProfilesRes.error) throw linkedProfilesRes.error
+      if (pendingClaimsRes.error) throw pendingClaimsRes.error
 
       return {
-        total: total || 0,
-        featured: featured || 0,
-        linkedProfiles: linkedProfiles || 0,
-        pendingClaims: pendingClaims || 0,
+        total: totalRes.count || 0,
+        featured: featuredRes.count || 0,
+        linkedProfiles: linkedProfilesRes.count || 0,
+        pendingClaims: pendingClaimsRes.count || 0,
       }
     },
   })

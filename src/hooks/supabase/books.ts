@@ -50,40 +50,30 @@ export function useBookStats() {
   return useQuery({
     queryKey: ['book-stats'],
     queryFn: async () => {
-      const { count: total, error: e1 } = await supabase.from('books').select('*', { count: 'exact', head: true })
-      if (e1) throw e1
+      const [totalRes, activeRes, featuredRes, digitalRes, lowStockRes] = await Promise.all([
+        supabase.from('books').select('*', { count: 'exact', head: true }),
+        supabase.from('books').select('*', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('books').select('*', { count: 'exact', head: true }).eq('featured', true),
+        supabase.from('books').select('*', { count: 'exact', head: true }).eq('is_digital', true),
+        supabase
+          .from('books')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_digital', false)
+          .lte('stock', 5),
+      ])
 
-      const { count: active, error: e2 } = await supabase
-        .from('books')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
-      if (e2) throw e2
-
-      const { count: featured, error: e3 } = await supabase
-        .from('books')
-        .select('*', { count: 'exact', head: true })
-        .eq('featured', true)
-      if (e3) throw e3
-
-      const { count: digital, error: e4 } = await supabase
-        .from('books')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_digital', true)
-      if (e4) throw e4
-
-      const { count: lowStock, error: e5 } = await supabase
-        .from('books')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_digital', false)
-        .lte('stock', 5)
-      if (e5) throw e5
+      if (totalRes.error) throw totalRes.error
+      if (activeRes.error) throw activeRes.error
+      if (featuredRes.error) throw featuredRes.error
+      if (digitalRes.error) throw digitalRes.error
+      if (lowStockRes.error) throw lowStockRes.error
 
       return {
-        total: total || 0,
-        active: active || 0,
-        featured: featured || 0,
-        digital: digital || 0,
-        lowStock: lowStock || 0,
+        total: totalRes.count || 0,
+        active: activeRes.count || 0,
+        featured: featuredRes.count || 0,
+        digital: digitalRes.count || 0,
+        lowStock: lowStockRes.count || 0,
       }
     },
   })

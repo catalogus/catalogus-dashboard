@@ -5,16 +5,16 @@ import { Button } from "@/components/ui/button";
 import { RichTextEditor, EditorRef } from "@/components/ui/richtext-editor";
 import { ArticleEditorHeader } from "./article-editor-header";
 import { ArticleEditorSidebar } from "./article-editor-sidebar";
-import { 
-  usePost, 
-  usePostCategoriesMap, 
-  useAuthorsList, 
-  usePostCategories, 
-  useCreatePost, 
+import {
+  useAuthorsList,
+  useCreatePost,
+  usePost,
+  usePostCategories,
+  usePostCategoriesMap,
+  useTranslatePost,
   useUpdatePost,
-  useUploadFile,
-  useTranslatePost
-} from "@/hooks/use-supabase";
+} from "@/hooks/supabase/posts";
+import { useUploadFile } from "@/hooks/supabase/upload";
 import { 
   Bold, Italic, Underline,
   List, ListOrdered, Quote, Link, 

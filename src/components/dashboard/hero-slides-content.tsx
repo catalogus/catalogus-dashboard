@@ -46,11 +46,11 @@ import {
   useCreateHeroSlide, 
   useUpdateHeroSlide, 
   useDeleteHeroSlide,
-  useUploadFile,
   useBooksForHero,
   useAuthorsForHero,
   usePostsForHero
-} from "@/hooks/use-supabase";
+} from "@/hooks/supabase/hero-slides";
+import { useUploadFile } from "@/hooks/supabase/upload";
 import type { HeroSlide } from "@/lib/supabase";
 import { validateAndOptimizeImage } from "@/lib/imageOptimization";
 import { toast } from "sonner";
