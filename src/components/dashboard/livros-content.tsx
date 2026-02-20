@@ -51,6 +51,7 @@ import {
   useUpdateBookStock,
 } from '@/hooks/supabase/books'
 import { useUploadFile } from '@/hooks/supabase/upload'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase, type Book } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { BookForm, type BookFormValues } from '@/components/dashboard/book-form'
@@ -117,8 +118,8 @@ export function LivrosContent() {
 
   const invalidateBookQueries = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['books'] }),
-      queryClient.invalidateQueries({ queryKey: ['book-stats'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.root() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.stats() }),
     ])
   }
 
@@ -234,7 +235,7 @@ export function LivrosContent() {
 
     if (error) throw error
 
-    await queryClient.invalidateQueries({ queryKey: ['book-authors-list'] })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.books.authorsList() })
     return {
       id: data.id,
       name: data.name || 'Autor',

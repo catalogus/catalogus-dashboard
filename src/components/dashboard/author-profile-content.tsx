@@ -21,6 +21,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { queryKeys } from "@/hooks/supabase/query-keys";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import type { AuthorUpdate, ProfileUpdate } from "@/lib/supabase";
@@ -221,7 +222,7 @@ export function AuthorProfileContent() {
   }, [profile]);
 
   const linkedAuthorQuery = useQuery({
-    queryKey: ["author", "by-profile", profile?.id],
+    queryKey: queryKeys.authors.byProfile(profile?.id),
     queryFn: async () => {
       if (!profile?.id) return null;
       const { data, error } = await supabase
@@ -349,7 +350,7 @@ export function AuthorProfileContent() {
     },
     onSuccess: async () => {
       await refreshProfile();
-      queryClient.invalidateQueries({ queryKey: ["author", "by-profile", profile?.id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.byProfile(profile?.id) });
       toast.success("Perfil actualizado com sucesso");
       setFile(null);
       setIsEditOpen(false);

@@ -34,6 +34,8 @@ export const queryKeys = {
     all: (page: number, pageSize: number, search?: string) => ['authors', page, pageSize, search] as const,
     root: () => ['authors'] as const,
     stats: () => ['author-stats'] as const,
+    unclaimed: (searchTerm?: string) => ['authors', 'unclaimed', searchTerm] as const,
+    byProfile: (profileId?: string) => ['author', 'by-profile', profileId] as const,
   },
   claims: {
     all: (filter: 'all' | 'pending' | 'approved' | 'rejected') => ['author-claims', filter] as const,

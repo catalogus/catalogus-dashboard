@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { queryKeys } from "@/hooks/supabase/query-keys";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import type { AuthorClaimInsert, AuthorUpdate } from "@/lib/supabase";
@@ -33,7 +34,7 @@ export function AuthorClaimProfileContent() {
   const [selectedAuthor, setSelectedAuthor] = useState<AuthorRow | null>(null);
 
   const unclaimedAuthorsQuery = useQuery({
-    queryKey: ["authors", "unclaimed", searchTerm],
+    queryKey: queryKeys.authors.unclaimed(searchTerm),
     queryFn: async () => {
       let query = supabase
         .from("authors")
@@ -80,8 +81,8 @@ export function AuthorClaimProfileContent() {
       if (auditError) throw auditError;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["authors", "unclaimed"] });
-      queryClient.invalidateQueries({ queryKey: ["author", "by-profile", user?.id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.unclaimed() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.byProfile(user?.id) });
       toast.success("Reivindicação enviada. Aguarde revisão do administrador.");
       setSelectedAuthor(null);
     },
