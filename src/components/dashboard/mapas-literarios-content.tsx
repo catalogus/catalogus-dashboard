@@ -41,6 +41,7 @@ import {
   usePublications,
   usePublicationStats,
 } from '@/hooks/supabase/publications'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase, type Json, type Publication } from '@/lib/supabase'
 import {
   type ProcessingProgress,
@@ -94,8 +95,8 @@ export function MapasLiterariosContent() {
 
   const invalidate = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['publications'] }),
-      queryClient.invalidateQueries({ queryKey: ['publication-stats'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publications.all() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publications.stats() }),
     ])
   }
 

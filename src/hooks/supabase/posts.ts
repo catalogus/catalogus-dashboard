@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase } from '@/lib/supabase'
 import type { Post, PostInsert, PostUpdate } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
@@ -24,7 +25,7 @@ export function usePosts({
   sortBy?: 'newest' | 'oldest' | 'title_asc' | 'title_desc' | 'featured'
 }) {
   return useQuery({
-    queryKey: ['posts', status, page, pageSize, search, categoryId, language, sortBy],
+    queryKey: queryKeys.posts.all({ status, page, pageSize, search, categoryId, language, sortBy }),
     queryFn: async () => {
       const from = (page - 1) * pageSize
       const to = from + pageSize - 1
@@ -87,7 +88,7 @@ export function usePosts({
 
 export function usePostStats() {
   return useQuery({
-    queryKey: ['post-stats'],
+    queryKey: queryKeys.posts.stats(),
     queryFn: async () => {
       const [publishedRes, draftRes, trashRes, totalRes] = await Promise.all([
         supabase.from('posts').select('*', { count: 'exact', head: true }).eq('status', 'published'),
@@ -121,7 +122,7 @@ export function usePostStatusCountsWithFilters({
   language?: 'all' | 'pt' | 'en'
 }) {
   return useQuery({
-    queryKey: ['post-status-counts-filtered', search, categoryId, language],
+    queryKey: queryKeys.posts.statusCountsFiltered(search, categoryId, language),
     queryFn: async () => {
       let filteredPostIds: string[] | undefined
 
@@ -172,7 +173,7 @@ export function usePostStatusCountsWithFilters({
 
 export function usePostCategories() {
   return useQuery({
-    queryKey: ['post-categories'],
+    queryKey: queryKeys.posts.categories(),
     queryFn: async () => {
       const { data, error } = await supabase.from('post_categories').select('*').order('name')
       if (error) throw error
@@ -183,7 +184,7 @@ export function usePostCategories() {
 
 export function usePost(id: string | undefined) {
   return useQuery({
-    queryKey: ['post', id],
+    queryKey: queryKeys.posts.detail(id),
     queryFn: async () => {
       if (!id) return null
       const { data, error } = await supabase
@@ -200,7 +201,7 @@ export function usePost(id: string | undefined) {
 
 export function usePostCategoriesMap(postId: string | undefined) {
   return useQuery({
-    queryKey: ['post-categories-map', postId],
+    queryKey: queryKeys.posts.categoriesMap(postId),
     queryFn: async () => {
       if (!postId) return []
       const { data, error } = await supabase.from('post_categories_map').select('category_id').eq('post_id', postId)
@@ -213,7 +214,7 @@ export function usePostCategoriesMap(postId: string | undefined) {
 
 export function useAuthorsList() {
   return useQuery({
-    queryKey: ['authors-list'],
+    queryKey: queryKeys.posts.authorsList(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
@@ -244,8 +245,8 @@ export function useCreatePost() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['posts'] })
-      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.stats() })
     },
   })
 }
@@ -271,10 +272,10 @@ export function useUpdatePost() {
       return data
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['posts'] })
-      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
-      queryClient.invalidateQueries({ queryKey: ['post', variables.id] })
-      queryClient.invalidateQueries({ queryKey: ['post-categories-map', variables.id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.stats() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.detail(variables.id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.categoriesMap(variables.id) })
     },
   })
 }
@@ -288,8 +289,8 @@ export function useBulkUpdatePosts() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['posts'] })
-      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.stats() })
     },
   })
 }
@@ -307,8 +308,8 @@ export function useMovePostsToTrash() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['posts'] })
-      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.stats() })
     },
   })
 }
@@ -342,8 +343,8 @@ export function useRestorePostsFromTrash() {
       return selectedPosts
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['posts'] })
-      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.stats() })
     },
   })
 }
@@ -357,8 +358,8 @@ export function useDeletePostsPermanently() {
       return ids
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['posts'] })
-      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.stats() })
     },
   })
 }
@@ -382,8 +383,8 @@ export function useTranslatePost() {
       return { success: true }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['posts'] })
-      queryClient.invalidateQueries({ queryKey: ['post-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.stats() })
     },
   })
 }

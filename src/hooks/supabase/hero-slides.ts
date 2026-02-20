@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { HeroSlide, HeroSlideInsert, HeroSlideUpdate } from '@/lib/supabase'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 
 export function useHeroSlides() {
   return useQuery({
-    queryKey: ['hero-slides'],
+    queryKey: queryKeys.heroSlides.all(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('hero_slides')
@@ -29,7 +30,7 @@ export function useCreateHeroSlide() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hero-slides'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroSlides.all() })
     },
   })
 }
@@ -48,7 +49,7 @@ export function useUpdateHeroSlide() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hero-slides'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroSlides.all() })
     },
   })
 }
@@ -61,14 +62,14 @@ export function useDeleteHeroSlide() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hero-slides'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.heroSlides.all() })
     },
   })
 }
 
 export function useBooksForHero() {
   return useQuery({
-    queryKey: ['books-for-hero'],
+    queryKey: queryKeys.heroSlides.booksForHero(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('books')
@@ -83,7 +84,7 @@ export function useBooksForHero() {
 
 export function useAuthorsForHero() {
   return useQuery({
-    queryKey: ['authors-for-hero'],
+    queryKey: queryKeys.heroSlides.authorsForHero(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('authors')
@@ -99,7 +100,7 @@ export function useAuthorsForHero() {
 
 export function usePostsForHero() {
   return useQuery({
-    queryKey: ['posts-for-hero'],
+    queryKey: queryKeys.heroSlides.postsForHero(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('posts')

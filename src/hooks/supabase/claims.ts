@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
 
@@ -11,7 +12,7 @@ type ClaimAuthorRow = Pick<Database['public']['Tables']['authors']['Row'],
 
 export function useAuthorClaims(filter: 'all' | 'pending' | 'approved' | 'rejected' = 'all') {
   return useQuery({
-    queryKey: ['author-claims', filter],
+    queryKey: queryKeys.claims.all(filter),
     queryFn: async () => {
       let query = supabase
         .from('authors')
@@ -68,7 +69,7 @@ export function useAuthorClaims(filter: 'all' | 'pending' | 'approved' | 'reject
 
 export function useAuthorClaimStats() {
   return useQuery({
-    queryKey: ['author-claim-stats'],
+    queryKey: queryKeys.claims.stats(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('authors')
@@ -139,12 +140,12 @@ export function useReviewAuthorClaim() {
       return { authorId, status }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['author-claims'] })
-      queryClient.invalidateQueries({ queryKey: ['author-claim-stats'] })
-      queryClient.invalidateQueries({ queryKey: ['authors'] })
-      queryClient.invalidateQueries({ queryKey: ['author-stats'] })
-      queryClient.invalidateQueries({ queryKey: ['profiles'] })
-      queryClient.invalidateQueries({ queryKey: ['profile-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.claims.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.claims.stats() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.stats() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.stats() })
     },
   })
 }

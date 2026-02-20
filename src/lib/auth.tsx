@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { User, Session } from '@supabase/supabase-js'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
 
@@ -46,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
 
   const profileQuery = useQuery({
-    queryKey: ['auth-profile', user?.id],
+    queryKey: queryKeys.auth.profile(user?.id),
     enabled: !!user?.id,
     staleTime: 30_000,
     retry: 1,
@@ -74,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (!user?.id) return
-    await queryClient.invalidateQueries({ queryKey: ['auth-profile', user.id] })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.auth.profile(user.id) })
     await profileQuery.refetch()
   }
 
@@ -123,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthBootstrapped(true)
 
       if (event === 'SIGNED_OUT') {
-        queryClient.removeQueries({ queryKey: ['auth-profile'] })
+        queryClient.removeQueries({ queryKey: queryKeys.auth.profileRoot() })
       }
     })
 
@@ -155,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut()
-    queryClient.removeQueries({ queryKey: ['auth-profile'] })
+    queryClient.removeQueries({ queryKey: queryKeys.auth.profileRoot() })
     setRecoveryMode(false)
   }
 

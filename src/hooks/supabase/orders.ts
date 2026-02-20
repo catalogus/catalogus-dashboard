@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase } from '@/lib/supabase'
 import { logAuditEvent } from '@/lib/audit'
 import type { Order, OrderUpdate } from '@/lib/supabase'
@@ -18,7 +19,7 @@ export function useOrders(
   search?: string,
 ) {
   return useQuery({
-    queryKey: ['orders', status, page, pageSize, search],
+    queryKey: queryKeys.orders.all(status, page, pageSize, search),
     queryFn: async () => {
       const from = (page - 1) * pageSize
       const to = from + pageSize - 1
@@ -55,7 +56,7 @@ export function useOrders(
 
 export function useOrderStats() {
   return useQuery({
-    queryKey: ['order-stats'],
+    queryKey: queryKeys.orders.stats(),
     queryFn: async () => {
       const { data, error } = await supabase.from('orders').select('status')
       if (error) throw error
@@ -80,7 +81,7 @@ export type MpesaTransactionStatus = {
 
 export function useMpesaTransactionStatus(orderId?: string) {
   return useQuery({
-    queryKey: ['mpesa-status', orderId],
+    queryKey: queryKeys.orders.mpesaStatus(orderId),
     queryFn: async () => {
       if (!orderId) return [] as MpesaTransactionStatus[]
 
@@ -121,9 +122,9 @@ export function useRefreshMpesaStatus() {
         summary: data?.message || 'Estado M-Pesa actualizado',
         changedFields: ['mpesa_last_response'],
       })
-      await queryClient.invalidateQueries({ queryKey: ['orders'] })
-      await queryClient.invalidateQueries({ queryKey: ['order-stats'] })
-      await queryClient.invalidateQueries({ queryKey: ['mpesa-status', orderId] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.orders.root() })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.orders.stats() })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.orders.mpesaStatus(orderId) })
     },
     onError: async (error: unknown, orderId) => {
       await logAuditEvent({
@@ -164,9 +165,9 @@ export function useReverseMpesaTransaction() {
           amount: variables.amount ?? null,
         },
       })
-      await queryClient.invalidateQueries({ queryKey: ['orders'] })
-      await queryClient.invalidateQueries({ queryKey: ['order-stats'] })
-      await queryClient.invalidateQueries({ queryKey: ['mpesa-status', variables.orderId] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.orders.root() })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.orders.stats() })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.orders.mpesaStatus(variables.orderId) })
     },
     onError: async (error: unknown, variables) => {
       await logAuditEvent({
@@ -192,8 +193,8 @@ export function useUpdateOrder() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
-      queryClient.invalidateQueries({ queryKey: ['order-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.stats() })
     },
   })
 }

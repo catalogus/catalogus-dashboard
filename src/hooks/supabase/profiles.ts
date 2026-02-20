@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase } from '@/lib/supabase'
 import type { Profile, ProfileInsert, ProfileUpdate } from '@/lib/supabase'
 
 export function useProfiles() {
   return useQuery({
-    queryKey: ['profiles'],
+    queryKey: queryKeys.profiles.all(),
     queryFn: async () => {
       const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
       if (error) throw error
@@ -15,7 +16,7 @@ export function useProfiles() {
 
 export function useProfileStats() {
   return useQuery({
-    queryKey: ['profile-stats'],
+    queryKey: queryKeys.profiles.stats(),
     queryFn: async () => {
       const { data, error } = await supabase.from('profiles').select('role, status')
       if (error) throw error
@@ -63,8 +64,8 @@ export function useCreateProfile() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profiles'] })
-      queryClient.invalidateQueries({ queryKey: ['profile-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.stats() })
     },
   })
 }
@@ -78,8 +79,8 @@ export function useUpdateProfile() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profiles'] })
-      queryClient.invalidateQueries({ queryKey: ['profile-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.stats() })
     },
   })
 }
@@ -92,8 +93,8 @@ export function useDeleteProfile() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profiles'] })
-      queryClient.invalidateQueries({ queryKey: ['profile-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.stats() })
     },
   })
 }

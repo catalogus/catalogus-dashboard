@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase } from '@/lib/supabase'
 import type { AuditEvent } from '@/lib/supabase'
 
@@ -20,7 +21,15 @@ export function useAuditEvents({
   search?: string
 }) {
   return useQuery({
-    queryKey: ['audit-events', page, pageSize, action, entityType, outcome, actorId, search],
+    queryKey: queryKeys.audit.events({
+      page,
+      pageSize,
+      action,
+      entityType,
+      outcome,
+      actorId,
+      search,
+    }),
     queryFn: async () => {
       const from = (page - 1) * pageSize
       const to = from + pageSize - 1
@@ -76,7 +85,7 @@ export function usePurgeAuditEvents() {
       return data as number
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['audit-events'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.audit.root() })
     },
   })
 }

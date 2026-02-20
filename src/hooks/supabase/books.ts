@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase } from '@/lib/supabase'
 import type { Book, BookInsert, BookUpdate } from '@/lib/supabase'
 
 export function useBooks(page: number = 1, pageSize: number = 10, search?: string) {
   return useQuery({
-    queryKey: ['books', page, pageSize, search],
+    queryKey: queryKeys.books.all(page, pageSize, search),
     queryFn: async () => {
       const from = (page - 1) * pageSize
       const to = from + pageSize - 1
@@ -33,7 +34,7 @@ export function useBooks(page: number = 1, pageSize: number = 10, search?: strin
 
 export function useBookAuthorsList() {
   return useQuery({
-    queryKey: ['book-authors-list'],
+    queryKey: queryKeys.books.authorsList(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('authors')
@@ -48,7 +49,7 @@ export function useBookAuthorsList() {
 
 export function useBookStats() {
   return useQuery({
-    queryKey: ['book-stats'],
+    queryKey: queryKeys.books.stats(),
     queryFn: async () => {
       const [totalRes, activeRes, featuredRes, digitalRes, lowStockRes] = await Promise.all([
         supabase.from('books').select('*', { count: 'exact', head: true }),
@@ -88,8 +89,8 @@ export function useCreateBook() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['books'] })
-      queryClient.invalidateQueries({ queryKey: ['book-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.stats() })
     },
   })
 }
@@ -103,8 +104,8 @@ export function useUpdateBook() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['books'] })
-      queryClient.invalidateQueries({ queryKey: ['book-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.stats() })
     },
   })
 }
@@ -133,8 +134,8 @@ export function useDeleteBook() {
       return { archived: false }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['books'] })
-      queryClient.invalidateQueries({ queryKey: ['book-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.stats() })
     },
   })
 }
@@ -148,8 +149,8 @@ export function useToggleBookActive() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['books'] })
-      queryClient.invalidateQueries({ queryKey: ['book-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.stats() })
     },
   })
 }
@@ -163,8 +164,8 @@ export function useToggleBookFeatured() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['books'] })
-      queryClient.invalidateQueries({ queryKey: ['book-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.stats() })
     },
   })
 }
@@ -178,8 +179,8 @@ export function useUpdateBookStock() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['books'] })
-      queryClient.invalidateQueries({ queryKey: ['book-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.books.stats() })
     },
   })
 }

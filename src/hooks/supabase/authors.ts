@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase } from '@/lib/supabase'
 import type { Author, AuthorInsert, AuthorUpdate } from '@/lib/supabase'
 
 export function useAuthors(page: number = 1, pageSize: number = 10, search?: string) {
   return useQuery({
-    queryKey: ['authors', page, pageSize, search],
+    queryKey: queryKeys.authors.all(page, pageSize, search),
     queryFn: async () => {
       const from = (page - 1) * pageSize
       const to = from + pageSize - 1
@@ -28,7 +29,7 @@ export function useAuthors(page: number = 1, pageSize: number = 10, search?: str
 
 export function useAuthorStats() {
   return useQuery({
-    queryKey: ['author-stats'],
+    queryKey: queryKeys.authors.stats(),
     queryFn: async () => {
       const [totalRes, featuredRes, linkedProfilesRes, pendingClaimsRes] = await Promise.all([
         supabase.from('authors').select('*', { count: 'exact', head: true }),
@@ -61,8 +62,8 @@ export function useCreateAuthor() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['authors'] })
-      queryClient.invalidateQueries({ queryKey: ['author-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.stats() })
     },
   })
 }
@@ -76,8 +77,8 @@ export function useUpdateAuthor() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['authors'] })
-      queryClient.invalidateQueries({ queryKey: ['author-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.stats() })
     },
   })
 }
@@ -90,8 +91,8 @@ export function useDeleteAuthor() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['authors'] })
-      queryClient.invalidateQueries({ queryKey: ['author-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.stats() })
     },
   })
 }

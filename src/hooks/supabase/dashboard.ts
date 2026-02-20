@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase } from '@/lib/supabase'
 
 export function useDashboardMetrics(startDate?: string, endDate?: string) {
@@ -6,7 +7,7 @@ export function useDashboardMetrics(startDate?: string, endDate?: string) {
   const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
   return useQuery({
-    queryKey: ['dashboard-metrics', startDate, endDate],
+    queryKey: queryKeys.dashboard.metrics(startDate, endDate),
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_admin_dashboard_metrics', {
         p_start_date: startDate || defaultStart,

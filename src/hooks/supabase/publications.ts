@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase } from '@/lib/supabase'
 import type { Publication, PublicationInsert, PublicationUpdate } from '@/lib/supabase'
 
 export function usePublications() {
   return useQuery({
-    queryKey: ['publications'],
+    queryKey: queryKeys.publications.all(),
     queryFn: async () => {
       const { data, error } = await supabase.from('publications').select('*').order('created_at', { ascending: false })
       if (error) throw error
@@ -15,7 +16,7 @@ export function usePublications() {
 
 export function usePublicationStats() {
   return useQuery({
-    queryKey: ['publication-stats'],
+    queryKey: queryKeys.publications.stats(),
     queryFn: async () => {
       const { data, error } = await supabase.from('publications').select('is_active, is_featured, page_count')
       if (error) throw error
@@ -39,8 +40,8 @@ export function useCreatePublication() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['publications'] })
-      queryClient.invalidateQueries({ queryKey: ['publication-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.publications.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.publications.stats() })
     },
   })
 }
@@ -59,8 +60,8 @@ export function useUpdatePublication() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['publications'] })
-      queryClient.invalidateQueries({ queryKey: ['publication-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.publications.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.publications.stats() })
     },
   })
 }
@@ -73,8 +74,8 @@ export function useDeletePublication() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['publications'] })
-      queryClient.invalidateQueries({ queryKey: ['publication-stats'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.publications.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.publications.stats() })
     },
   })
 }
