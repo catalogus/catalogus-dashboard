@@ -45,10 +45,16 @@ import {
   useRestorePostsFromTrash,
   useDeletePostsPermanently,
 } from "@/hooks/use-supabase";
+import type { Database } from "@/lib/database.types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type TabStatus = "all" | "published" | "draft" | "trash";
+
+type PostListItem = Pick<Database["public"]["Tables"]["posts"]["Row"],
+  "id" | "title" | "status" | "translation_status" | "created_at"> & {
+  profiles?: { name: string | null } | null;
+};
 
 const PAGE_SIZE = 10;
 
@@ -83,11 +89,11 @@ export function ArtigosContent() {
   const restoreMutation = useRestorePostsFromTrash();
   const deletePermanentlyMutation = useDeletePostsPermanently();
 
-  const posts = postsData?.data || [];
+  const posts = (postsData?.data || []) as PostListItem[];
   const totalPages = postsData?.totalPages || 1;
   const totalCount = postsData?.totalCount || 0;
   
-  const allSelected = posts.length > 0 && posts.every((p: any) => selectedIds.has(p.id));
+  const allSelected = posts.length > 0 && posts.every((p) => selectedIds.has(p.id));
   const someSelected = selectedIds.size > 0;
 
   const handleSearch = (value: string) => {
@@ -176,7 +182,7 @@ export function ArtigosContent() {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(posts.map((p: any) => p.id)));
+      setSelectedIds(new Set(posts.map((p) => p.id)));
     }
   };
   
@@ -193,7 +199,7 @@ export function ArtigosContent() {
   const handleBulkPublish = async () => {
     await bulkUpdateMutation.mutateAsync({
       ids: Array.from(selectedIds),
-      updates: { status: 'published' as any, published_at: new Date().toISOString() }
+      updates: { status: 'published', published_at: new Date().toISOString() }
     });
     setSelectedIds(new Set());
     toast.success('Artigos publicados');
@@ -481,7 +487,7 @@ export function ArtigosContent() {
                     Carregando...
                   </TableCell>
                 </TableRow>
-              ) : posts?.map((post: any) => (
+              ) : posts?.map((post) => (
                 <TableRow 
                   key={post.id}
                   className="cursor-pointer"
@@ -498,7 +504,7 @@ export function ArtigosContent() {
                       {post.title}
                     </Link>
                   </TableCell>
-                  <TableCell>{(post.profiles as any)?.name || '-'}</TableCell>
+                  <TableCell>{post.profiles?.name || '-'}</TableCell>
                   <TableCell>{getStatusBadge(post.status)}</TableCell>
                   <TableCell>{getTranslationBadge(post.translation_status)}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">

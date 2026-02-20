@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import type { AuthorUpdate, ProfileUpdate } from "@/lib/supabase";
 
 type ClaimStatus = "unclaimed" | "pending" | "approved" | "rejected";
 
@@ -121,6 +122,11 @@ function validateUrlFields(values: FormState): Partial<Record<UrlErrorKey, strin
   }
 
   return errors;
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message;
+  return fallback;
 }
 
 function formatDate(value: string | null | undefined) {
@@ -305,8 +311,8 @@ export function AuthorProfileContent() {
           featured_video: values.featured_video || null,
           photo_url: nextPhotoUrl || null,
           photo_path: nextPhotoPath || null,
-          social_links: values.social_links as any,
-        } as any)
+          social_links: values.social_links,
+        } satisfies ProfileUpdate)
         .eq("id", user.id);
 
       if (profileError) throw profileError;
@@ -332,8 +338,8 @@ export function AuthorProfileContent() {
             featured_video: values.featured_video || null,
             photo_url: nextPhotoUrl || null,
             photo_path: nextPhotoPath || null,
-            social_links: values.social_links as any,
-          } as any)
+            social_links: values.social_links,
+          } satisfies AuthorUpdate)
           .eq("id", linkedAuthor.id);
 
         if (authorError) {
@@ -348,8 +354,8 @@ export function AuthorProfileContent() {
       setFile(null);
       setIsEditOpen(false);
     },
-    onError: (error: any) => {
-      toast.error(error?.message || "Falha ao actualizar perfil");
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Falha ao actualizar perfil"));
     },
   });
 

@@ -33,7 +33,21 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useProfiles, useProfileStats, useCreateProfile, useUpdateProfile, useDeleteProfile } from "@/hooks/use-supabase";
-import type { Profile } from "@/lib/supabase";
+import type { Profile, ProfileInsert } from "@/lib/supabase";
+
+type ProfileFormPayload = {
+  name: string;
+  email: string;
+  phone: string | null;
+  role: 'admin' | 'author' | 'customer';
+  status: 'pending' | 'approved' | 'rejected';
+  author_type?: string | null;
+  bio?: string | null;
+  birth_date?: string | null;
+  residence_city?: string | null;
+  province?: string | null;
+  featured?: boolean;
+};
 
 export function UsuariosContent() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -89,7 +103,7 @@ export function UsuariosContent() {
     
     const role = formData.get('role') as 'admin' | 'author' | 'customer';
     
-    const profileData: any = {
+    const profileData: ProfileFormPayload = {
       name: formData.get('name') as string,
       email: formData.get('email') as string,
       phone: formData.get('phone') as string || null,
@@ -114,7 +128,7 @@ export function UsuariosContent() {
         alert('Senha é obrigatória para novos usuários');
         return;
       }
-      await createMutation.mutateAsync({ profile: profileData, password });
+      await createMutation.mutateAsync({ profile: profileData as unknown as ProfileInsert, password });
     }
     
     setIsSheetOpen(false);

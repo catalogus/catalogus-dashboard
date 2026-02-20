@@ -7,6 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import type { AuthorClaimInsert, AuthorUpdate } from "@/lib/supabase";
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message;
+  return fallback;
+}
 
 type ClaimStatus = "unclaimed" | "pending" | "approved" | "rejected";
 
@@ -58,7 +64,7 @@ export function AuthorClaimProfileContent() {
           profile_id: user.id,
           claim_status: "pending",
           claimed_at: now,
-        } as any)
+        } satisfies AuthorUpdate)
         .eq("id", authorId)
         .in("claim_status", ["unclaimed", "rejected"]);
 
@@ -69,7 +75,7 @@ export function AuthorClaimProfileContent() {
         profile_id: user.id,
         status: "pending",
         claimed_at: now,
-      } as any);
+      } satisfies AuthorClaimInsert);
 
       if (auditError) throw auditError;
     },
@@ -79,8 +85,8 @@ export function AuthorClaimProfileContent() {
       toast.success("Reivindicação enviada. Aguarde revisão do administrador.");
       setSelectedAuthor(null);
     },
-    onError: (error: any) => {
-      toast.error(error?.message || "Falha ao enviar reivindicação");
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Falha ao enviar reivindicação"));
     },
   });
 

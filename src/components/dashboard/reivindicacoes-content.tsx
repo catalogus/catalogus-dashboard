@@ -15,8 +15,22 @@ import { useAuthorClaims, useAuthorClaimStats, useReviewAuthorClaim } from "@/ho
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import type { Database } from "@/lib/database.types";
 
 type TabStatus = "all" | "pending" | "approved" | "rejected";
+
+type ProfileClaimInfo = Pick<Database["public"]["Tables"]["profiles"]["Row"], "name" | "email" | "status">;
+type ClaimRow = {
+  id: string;
+  name: string;
+  photo_url: string | null;
+  wp_slug: string | null;
+  profile_id: string | null;
+  claim_status: string;
+  claimed_at: string;
+  notes?: string | null;
+  profiles?: ProfileClaimInfo | null;
+};
 
 export function ReivindicacoesContent() {
   const [activeTab, setActiveTab] = useState<TabStatus>("all");
@@ -46,7 +60,7 @@ export function ReivindicacoesContent() {
     });
   };
 
-  const handleStatusChange = async (claim: any, newStatus: 'approved' | 'rejected') => {
+  const handleStatusChange = async (claim: ClaimRow, newStatus: 'approved' | 'rejected') => {
     if (!claim.profile_id) {
       toast.error('Esta reivindicação não possui perfil associado.');
       return;
@@ -135,7 +149,7 @@ export function ReivindicacoesContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {claims?.map((claim: any) => (
+              {(claims as ClaimRow[] | undefined)?.map((claim) => (
                 <TableRow key={claim.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -160,10 +174,10 @@ export function ReivindicacoesContent() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {(claim.profiles as any)?.name || '—'}
+                    {claim.profiles?.name || '—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {(claim.profiles as any)?.email || '—'}
+                    {claim.profiles?.email || '—'}
                   </TableCell>
                   <TableCell>
                     {claim.notes ? (
@@ -181,15 +195,15 @@ export function ReivindicacoesContent() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {(claim.profiles as any)?.status ? (
+                    {claim.profiles?.status ? (
                       <Badge
                         className={cn(
-                          (claim.profiles as any).status === 'approved' && 'bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/20',
-                          (claim.profiles as any).status === 'pending' && 'bg-amber-500/15 text-amber-600 hover:bg-amber-500/20',
-                          (claim.profiles as any).status === 'rejected' && 'bg-red-500/15 text-red-600 hover:bg-red-500/20',
+                          claim.profiles.status === 'approved' && 'bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/20',
+                          claim.profiles.status === 'pending' && 'bg-amber-500/15 text-amber-600 hover:bg-amber-500/20',
+                          claim.profiles.status === 'rejected' && 'bg-red-500/15 text-red-600 hover:bg-red-500/20',
                         )}
                       >
-                        {(claim.profiles as any).status}
+                        {claim.profiles.status}
                       </Badge>
                     ) : (
                       <span className="text-muted-foreground">—</span>

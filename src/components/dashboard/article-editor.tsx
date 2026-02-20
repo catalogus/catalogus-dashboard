@@ -23,6 +23,10 @@ import {
 } from "lucide-react";
 import { validateAndOptimizeImage } from "@/lib/imageOptimization";
 import { toast } from "sonner";
+import type { Database } from "@/lib/database.types";
+
+type PostStatus = Database["public"]["Tables"]["posts"]["Row"]["status"];
+type TranslationStatus = Database["public"]["Enums"]["translation_status"] | null;
 
 interface ArticleEditorProps {
   postId?: string;
@@ -99,10 +103,10 @@ export function ArticleEditor({ postId }: ArticleEditorProps) {
       title,
       slug: title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
       body,
-      status: status as any,
+      status: status as PostStatus,
       author_id: authorId,
       language: language as 'pt' | 'en',
-      translation_status: translationStatus as any,
+      translation_status: translationStatus as TranslationStatus,
       excerpt: excerpt || null,
       featured_image_url: featuredImageUrl,
       published_at: publishedAt?.toISOString() || null,
@@ -138,7 +142,7 @@ export function ArticleEditor({ postId }: ArticleEditorProps) {
       status: 'published' as const,
       author_id: authorId,
       language: language as 'pt' | 'en',
-      translation_status: translationStatus as any,
+      translation_status: translationStatus as TranslationStatus,
       excerpt: excerpt || null,
       featured_image_url: featuredImageUrl,
       published_at: publishedAt?.toISOString() || new Date().toISOString(),

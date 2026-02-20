@@ -41,7 +41,7 @@ import {
   usePublications,
   usePublicationStats,
 } from '@/hooks/use-supabase'
-import { supabase, type Publication } from '@/lib/supabase'
+import { supabase, type Json, type Publication } from '@/lib/supabase'
 import {
   dataUrlToBlob,
   extractPdfOutline,
@@ -68,6 +68,11 @@ const buildSeoDescription = (value?: string | null) => {
   const maxLength = 160
   if (cleaned.length <= maxLength) return cleaned
   return `${cleaned.slice(0, maxLength).trim()}...`
+}
+
+const normalizeToc = (value: unknown): TableOfContentsItem[] => {
+  if (!Array.isArray(value)) return []
+  return value as TableOfContentsItem[]
 }
 
 export function MapasLiterariosContent() {
@@ -113,7 +118,7 @@ export function MapasLiterariosContent() {
     let cover_url = editingPublication?.cover_url ?? ''
     let page_count = editingPublication?.page_count ?? 0
     let file_size_bytes = editingPublication?.file_size_bytes ?? null
-    let tableOfContents = values.table_of_contents as unknown as TableOfContentsItem[]
+    let tableOfContents = normalizeToc(values.table_of_contents)
 
     try {
       if (pdfFile) {
@@ -149,7 +154,7 @@ export function MapasLiterariosContent() {
             pdf_path,
             pdf_url,
             file_size_bytes,
-            table_of_contents: tableOfContents as any,
+            table_of_contents: tableOfContents as Json,
             display_mode: values.display_mode,
             page_width: values.page_width,
             page_height: values.page_height,
@@ -246,7 +251,7 @@ export function MapasLiterariosContent() {
         cover_url: cover_url || null,
         file_size_bytes,
         page_count,
-        table_of_contents: tableOfContents as any,
+        table_of_contents: tableOfContents as Json,
         display_mode: values.display_mode,
         page_width: values.page_width,
         page_height: values.page_height,
@@ -617,8 +622,7 @@ export function MapasLiterariosContent() {
                       publish_date: editingPublication.publish_date ?? '',
                       seo_title: editingPublication.seo_title ?? '',
                       seo_description: editingPublication.seo_description ?? '',
-                      table_of_contents:
-                        (editingPublication.table_of_contents as any as TableOfContentsItem[]) ?? [],
+                      table_of_contents: normalizeToc(editingPublication.table_of_contents),
                       pdf_path: editingPublication.pdf_path,
                       pdf_url: editingPublication.pdf_url ?? undefined,
                       cover_url: editingPublication.cover_url ?? undefined,

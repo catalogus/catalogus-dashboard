@@ -36,6 +36,12 @@ export type RenderedPage = {
   height: number
 }
 
+type OutlineNode = {
+  title: string
+  dest?: string | unknown[]
+  items?: OutlineNode[]
+}
+
 export async function extractPdfOutline(
   pdfUrl: string,
 ): Promise<TableOfContentsItem[]> {
@@ -48,7 +54,7 @@ export async function extractPdfOutline(
 
     const items: TableOfContentsItem[] = []
 
-    const processItems = async (outlineItems: any[], level: number): Promise<void> => {
+    const processItems = async (outlineItems: OutlineNode[], level: number): Promise<void> => {
       for (const item of outlineItems) {
         let pageNumber = 1
 
@@ -57,10 +63,10 @@ export async function extractPdfOutline(
             if (typeof item.dest === 'string') {
               const dest = await pdf.getDestination(item.dest)
               if (dest && dest[0]) {
-                pageNumber = (await pdf.getPageIndex(dest[0])) + 1
+                pageNumber = (await pdf.getPageIndex(dest[0] as Parameters<typeof pdf.getPageIndex>[0])) + 1
               }
             } else if (Array.isArray(item.dest) && item.dest[0]) {
-              pageNumber = (await pdf.getPageIndex(item.dest[0])) + 1
+              pageNumber = (await pdf.getPageIndex(item.dest[0] as Parameters<typeof pdf.getPageIndex>[0])) + 1
             }
           }
         } catch {
@@ -79,7 +85,7 @@ export async function extractPdfOutline(
       }
     }
 
-    await processItems(outline, 0)
+    await processItems(outline as OutlineNode[], 0)
     return items
   } catch {
     return []
@@ -115,10 +121,11 @@ export async function* renderAllPages(
     fullCanvas.width = fullViewport.width
     fullCanvas.height = fullViewport.height
 
-    await (page.render({
+    await page.render({
+      canvas: fullCanvas,
       canvasContext: fullCtx,
       viewport: fullViewport,
-    } as any)).promise
+    }).promise
 
     const imageDataUrl = fullCanvas.toDataURL('image/webp', 0.85)
 
@@ -129,10 +136,11 @@ export async function* renderAllPages(
     thumbCanvas.width = thumbViewport.width
     thumbCanvas.height = thumbViewport.height
 
-    await (page.render({
+    await page.render({
+      canvas: thumbCanvas,
       canvasContext: thumbCtx,
       viewport: thumbViewport,
-    } as any)).promise
+    }).promise
 
     const thumbnailDataUrl = thumbCanvas.toDataURL('image/webp', 0.7)
 

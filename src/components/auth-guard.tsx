@@ -20,10 +20,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   const effectiveRole = role ?? ((user?.user_metadata?.role as string | undefined) ?? null)
 
-  const defaultRoute =
-    effectiveRole === 'author'
-      ? '/perfil'
-      : '/'
+  const defaultRoute: '/' | '/perfil' = effectiveRole === 'author' ? '/perfil' : '/'
 
   const isAllowedForRole = () => {
     if (!effectiveRole) return true
@@ -44,12 +41,12 @@ export function AuthGuard({ children }: AuthGuardProps) {
     if (!loading && !user && isAuthRoute) return
 
     if (!loading && user && isAuthRoute && !isResetPasswordRoute) {
-      navigate({ to: defaultRoute as any, replace: true })
+      navigate({ to: defaultRoute, replace: true })
       return
     }
 
     if (!unauthorized) return
-    navigate({ to: defaultRoute as any, replace: true })
+    navigate({ to: defaultRoute, replace: true })
   }, [
     unauthorized,
     navigate,

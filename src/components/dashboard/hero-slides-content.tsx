@@ -167,16 +167,17 @@ export function HeroSlidesContent() {
       case 'author':
         autoUrl = `/autor/${formData.content_id}`;
         break;
-      case 'post':
+      case 'post': {
         const selectedPost = posts?.find(p => p.id === formData.content_id);
         autoUrl = selectedPost?.slug ? `/noticias/${selectedPost.slug}` : '';
         break;
+      }
     }
     
     if (autoUrl && formData.cta_url !== autoUrl) {
       handleFieldChange('cta_url', autoUrl);
     }
-  }, [formData.content_type, formData.content_id, posts]);
+  }, [formData.content_type, formData.content_id, formData.cta_url, posts]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -194,7 +195,7 @@ export function HeroSlidesContent() {
         });
         background_image_url = url;
         background_image_path = path;
-      } catch (error) {
+      } catch {
         alert('Erro ao fazer upload da imagem');
         return;
       }

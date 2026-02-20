@@ -51,6 +51,9 @@ import {
 } from "@/hooks/use-supabase";
 import { toast } from "sonner";
 import type { Order } from "@/lib/supabase";
+import type { Database } from "@/lib/database.types";
+
+type OrderStatus = Database["public"]["Enums"]["order_status"];
 
 const PAGE_SIZE = 10;
 
@@ -105,8 +108,8 @@ export function PedidosContent() {
     });
   };
 
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
-    const promise = updateMutation.mutateAsync({ id: orderId, status: newStatus as any });
+  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
+    const promise = updateMutation.mutateAsync({ id: orderId, status: newStatus });
     toast.promise(promise, {
       loading: "A actualizar estado do pedido...",
       success: "Estado do pedido actualizado com sucesso",

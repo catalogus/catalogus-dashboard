@@ -7,6 +7,12 @@ import { Label } from "@/components/ui/label";
 import { logAuditEvent } from "@/lib/audit";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import type { AuthorUpdate, ProfileUpdate } from "@/lib/supabase";
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message;
+  return fallback;
+}
 
 type RuleState = {
   label: string;
@@ -97,7 +103,7 @@ export function AccountSettingsContent() {
           phone: phone.trim() || null,
           photo_path: nextPhotoPath || null,
           photo_url: nextPhotoUrl || null,
-        } as any)
+        } satisfies ProfileUpdate)
         .eq("id", user.id);
 
       if (profileError) throw profileError;
@@ -118,7 +124,7 @@ export function AccountSettingsContent() {
               phone: phone.trim() || null,
               photo_path: nextPhotoPath || null,
               photo_url: nextPhotoUrl || null,
-            } as any)
+            } satisfies AuthorUpdate)
             .eq("id", linkedAuthor.id);
 
           if (authorError) {
@@ -143,8 +149,8 @@ export function AccountSettingsContent() {
       await refreshProfile();
       toast.success("Conta actualizada com sucesso");
     },
-    onError: (error: any) => {
-      toast.error(error?.message || "Falha ao actualizar conta");
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Falha ao actualizar conta"));
     },
   });
 
@@ -162,7 +168,7 @@ export function AccountSettingsContent() {
 
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({ email } as any)
+        .update({ email } satisfies ProfileUpdate)
         .eq("id", user.id);
       if (profileError) throw profileError;
     },
@@ -180,8 +186,8 @@ export function AccountSettingsContent() {
       setNewEmail("");
       toast.success("Pedido de alteração de email enviado.");
     },
-    onError: (error: any) => {
-      toast.error(error?.message || "Falha ao actualizar email");
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Falha ao actualizar email"));
     },
   });
 
@@ -209,8 +215,8 @@ export function AccountSettingsContent() {
       setConfirmPassword("");
       toast.success("Senha actualizada com sucesso");
     },
-    onError: (error: any) => {
-      toast.error(error?.message || "Falha ao actualizar senha");
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Falha ao actualizar senha"));
     },
   });
 

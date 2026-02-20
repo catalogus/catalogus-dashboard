@@ -271,7 +271,7 @@ export function LivrosContent() {
   const handleToggleFeatured = async (book: BookWithAuthors) => {
     await toggleFeaturedMutation.mutateAsync({
       id: book.id,
-      featured: !Boolean(book.featured),
+      featured: !book.featured,
     })
     toast.success(book.featured ? 'Livro removido dos destaques' : 'Livro marcado como destaque')
   }

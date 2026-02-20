@@ -101,7 +101,7 @@ export function AutoresContent() {
         instagram: (formData.get('instagram') as string) || null,
         twitter: (formData.get('twitter') as string) || null,
         youtube: (formData.get('youtube') as string) || null,
-      } as any,
+      },
       featured: formData.get('featured') === 'on',
     };
 

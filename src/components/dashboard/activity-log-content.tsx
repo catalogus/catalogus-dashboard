@@ -110,8 +110,9 @@ export function ActivityLogContent() {
               try {
                 const removed = await purgeMutation.mutateAsync(90)
                 toast.success(`${removed} eventos antigos removidos (retenção de 90 dias).`)
-              } catch (error: any) {
-                toast.error(error?.message || 'Falha ao limpar eventos antigos.')
+              } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : 'Falha ao limpar eventos antigos.'
+                toast.error(message)
               }
             }}
           >
