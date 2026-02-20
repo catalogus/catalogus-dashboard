@@ -25,6 +25,8 @@ import { Route as PerfilReivindicarRouteImport } from './routes/perfil/reivindic
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
+import { Route as AuthBridgeRouteImport } from './routes/auth/bridge'
+import { Route as AuthAuthorSignUpRouteImport } from './routes/auth/author-sign-up'
 import { Route as ArtigosNovoRouteImport } from './routes/artigos/novo'
 import { Route as ArtigosIdEditarRouteImport } from './routes/artigos/$id/editar'
 
@@ -108,6 +110,16 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   path: '/auth/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthBridgeRoute = AuthBridgeRouteImport.update({
+  id: '/auth/bridge',
+  path: '/auth/bridge',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthAuthorSignUpRoute = AuthAuthorSignUpRouteImport.update({
+  id: '/auth/author-sign-up',
+  path: '/auth/author-sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ArtigosNovoRoute = ArtigosNovoRouteImport.update({
   id: '/artigos/novo',
   path: '/artigos/novo',
@@ -122,6 +134,8 @@ const ArtigosIdEditarRoute = ArtigosIdEditarRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/artigos/novo': typeof ArtigosNovoRoute
+  '/auth/author-sign-up': typeof AuthAuthorSignUpRoute
+  '/auth/bridge': typeof AuthBridgeRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -142,6 +156,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/artigos/novo': typeof ArtigosNovoRoute
+  '/auth/author-sign-up': typeof AuthAuthorSignUpRoute
+  '/auth/bridge': typeof AuthBridgeRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -163,6 +179,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/artigos/novo': typeof ArtigosNovoRoute
+  '/auth/author-sign-up': typeof AuthAuthorSignUpRoute
+  '/auth/bridge': typeof AuthBridgeRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -185,6 +203,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/artigos/novo'
+    | '/auth/author-sign-up'
+    | '/auth/bridge'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/reset-password'
@@ -205,6 +225,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/artigos/novo'
+    | '/auth/author-sign-up'
+    | '/auth/bridge'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/reset-password'
@@ -225,6 +247,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/artigos/novo'
+    | '/auth/author-sign-up'
+    | '/auth/bridge'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/reset-password'
@@ -246,6 +270,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ArtigosNovoRoute: typeof ArtigosNovoRoute
+  AuthAuthorSignUpRoute: typeof AuthAuthorSignUpRoute
+  AuthBridgeRoute: typeof AuthBridgeRoute
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
@@ -378,6 +404,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/bridge': {
+      id: '/auth/bridge'
+      path: '/auth/bridge'
+      fullPath: '/auth/bridge'
+      preLoaderRoute: typeof AuthBridgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/author-sign-up': {
+      id: '/auth/author-sign-up'
+      path: '/auth/author-sign-up'
+      fullPath: '/auth/author-sign-up'
+      preLoaderRoute: typeof AuthAuthorSignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/artigos/novo': {
       id: '/artigos/novo'
       path: '/artigos/novo'
@@ -398,6 +438,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ArtigosNovoRoute: ArtigosNovoRoute,
+  AuthAuthorSignUpRoute: AuthAuthorSignUpRoute,
+  AuthBridgeRoute: AuthBridgeRoute,
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,

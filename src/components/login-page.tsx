@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/lib/auth-context'
+import { buildBridgeTransferUrl, resolveReturnBridgeUrl } from '@/lib/cross-site-auth'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,9 +27,36 @@ export function LoginPage() {
       setError('Email ou senha inválidos')
       setLoading(false)
     } else {
+      const returnToRaw =
+        typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search).get('return_to')
+          : null
+      const returnBridgeUrl = resolveReturnBridgeUrl(returnToRaw)
+
+      if (returnBridgeUrl) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (session) {
+          window.location.replace(
+            buildBridgeTransferUrl(returnBridgeUrl, session, window.location.origin)
+          )
+          return
+        }
+      }
+
       navigate({ to: '/' })
     }
   }
+
+  const returnToRaw =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('return_to')
+      : null
+  const signUpHref = returnToRaw
+    ? `/auth/author-sign-up?return_to=${encodeURIComponent(returnToRaw)}`
+    : '/auth/author-sign-up'
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -82,6 +111,13 @@ export function LoginPage() {
             >
               Esqueceu a senha?
             </Link>
+
+            <a
+              href={signUpHref}
+              className="block text-center text-sm underline text-amber-700 hover:text-amber-800"
+            >
+              Registar como autor
+            </a>
           </form>
         </CardContent>
       </Card>
