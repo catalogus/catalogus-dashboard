@@ -41,6 +41,7 @@ import {
   usePublications,
   usePublicationStats,
 } from '@/hooks/supabase/publications'
+import { useLongLoading } from '@/hooks/use-long-loading'
 import { queryKeys } from '@/hooks/supabase/query-keys'
 import { supabase, type Json, type Publication } from '@/lib/supabase'
 import {
@@ -101,8 +102,9 @@ export function MapasLiterariosContent() {
   } | null>(null)
 
   const queryClient = useQueryClient()
-  const { data: publications, isLoading } = usePublications()
+  const { data: publications, isLoading, isFetching, error, refetch } = usePublications()
   const { data: stats } = usePublicationStats()
+  const isLongLoading = useLongLoading(isLoading, 7000)
 
   const invalidate = async () => {
     await Promise.all([
@@ -382,7 +384,31 @@ export function MapasLiterariosContent() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Carregando publicacoes...</p>
+        <div className="text-center space-y-3">
+          <p className="text-muted-foreground">Carregando publicacoes...</p>
+          {isLongLoading && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Isto está a demorar mais do que o esperado.</p>
+              <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
+                Tentar novamente
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    const message = error instanceof Error ? error.message : 'Erro ao carregar publicacoes'
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center space-y-3">
+          <p className="text-red-500">{message}</p>
+          <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
+            Tentar novamente
+          </Button>
+        </div>
       </div>
     )
   }

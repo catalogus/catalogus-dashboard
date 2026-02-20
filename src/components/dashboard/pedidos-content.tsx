@@ -50,6 +50,7 @@ import {
   useReverseMpesaTransaction,
 } from "@/hooks/supabase/orders";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useLongLoading } from "@/hooks/use-long-loading";
 import { toast } from "sonner";
 import type { Order } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
@@ -64,7 +65,7 @@ export function PedidosContent() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const { data: ordersData, isLoading, error } = useOrders(selectedStatus, page, PAGE_SIZE, debouncedSearch);
+  const { data: ordersData, isLoading, isFetching, error, refetch } = useOrders(selectedStatus, page, PAGE_SIZE, debouncedSearch);
   const { data: stats } = useOrderStats();
   const updateMutation = useUpdateOrder();
   const refreshMpesaMutation = useRefreshMpesaStatus();
@@ -75,6 +76,7 @@ export function PedidosContent() {
   const orders = ordersData?.data || [];
   const totalPages = ordersData?.totalPages || 1;
   const totalCount = ordersData?.totalCount || 0;
+  const isLongLoading = useLongLoading(isLoading, 7000);
 
   const isMpesaOrder = (order: Order) =>
     Boolean(
@@ -155,7 +157,17 @@ export function PedidosContent() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Carregando pedidos...</p>
+        <div className="text-center space-y-3">
+          <p className="text-muted-foreground">Carregando pedidos...</p>
+          {isLongLoading && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Isto está a demorar mais do que o esperado.</p>
+              <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
+                Tentar novamente
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -163,7 +175,12 @@ export function PedidosContent() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-red-500">Erro ao carregar pedidos: {(error as Error).message}</p>
+        <div className="text-center space-y-3">
+          <p className="text-red-500">Erro ao carregar pedidos: {(error as Error).message}</p>
+          <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
+            Tentar novamente
+          </Button>
+        </div>
       </div>
     );
   }

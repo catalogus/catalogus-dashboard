@@ -46,6 +46,7 @@ import {
   useDeletePostsPermanently,
 } from "@/hooks/supabase/posts";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useLongLoading } from "@/hooks/use-long-loading";
 import type { Database } from "@/lib/database.types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -69,7 +70,7 @@ export function ArtigosContent() {
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const { data: postsData, isLoading } = usePosts({
+  const { data: postsData, isLoading, isFetching, error, refetch } = usePosts({
     status: activeTab,
     page,
     pageSize: PAGE_SIZE,
@@ -93,6 +94,7 @@ export function ArtigosContent() {
   const posts = (postsData?.data || []) as PostListItem[];
   const totalPages = postsData?.totalPages || 1;
   const totalCount = postsData?.totalCount || 0;
+  const isLongLoading = useLongLoading(isLoading, 7000);
   
   const allSelected = posts.length > 0 && posts.every((p) => selectedIds.has(p.id));
   const someSelected = selectedIds.size > 0;
@@ -480,7 +482,28 @@ export function ArtigosContent() {
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    Carregando...
+                    <div className="space-y-2">
+                      <p>Carregando...</p>
+                      {isLongLoading && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground">Isto está a demorar mais do que o esperado.</p>
+                          <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
+                            Tentar novamente
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    <div className="space-y-2">
+                      <p className="text-red-500">Erro ao carregar artigos.</p>
+                      <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
+                        Tentar novamente
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : posts?.map((post) => (
@@ -542,7 +565,7 @@ export function ArtigosContent() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!isLoading && posts?.length === 0 && (
+              {!isLoading && !error && posts?.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     Nenhum artigo encontrado.
