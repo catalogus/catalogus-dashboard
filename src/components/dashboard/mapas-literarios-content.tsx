@@ -43,11 +43,6 @@ import {
 } from '@/hooks/supabase/publications'
 import { supabase, type Json, type Publication } from '@/lib/supabase'
 import {
-  dataUrlToBlob,
-  extractPdfOutline,
-  renderAllPages,
-} from '@/lib/pdfHelpers'
-import {
   type ProcessingProgress,
   type PublicationFormValues,
   type TableOfContentsItem,
@@ -123,6 +118,12 @@ export function MapasLiterariosContent() {
 
     try {
       if (pdfFile) {
+        const {
+          dataUrlToBlob,
+          extractPdfOutline,
+          renderAllPages,
+        } = await import('@/lib/pdfHelpers')
+
         setProcessingProgress({ status: 'uploading' })
 
         const pdfFileName = `${publicationId}/original.pdf`
