@@ -21,6 +21,7 @@ import { Route as ContaIndexRouteImport } from './routes/conta/index'
 import { Route as AutoresIndexRouteImport } from './routes/autores/index'
 import { Route as AtividadeIndexRouteImport } from './routes/atividade/index'
 import { Route as ArtigosIndexRouteImport } from './routes/artigos/index'
+import { Route as AnalyticsIndexRouteImport } from './routes/analytics/index'
 import { Route as PerfilReivindicarRouteImport } from './routes/perfil/reivindicar'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
@@ -90,6 +91,11 @@ const ArtigosIndexRoute = ArtigosIndexRouteImport.update({
   path: '/artigos/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AnalyticsIndexRoute = AnalyticsIndexRouteImport.update({
+  id: '/analytics/',
+  path: '/analytics/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PerfilReivindicarRoute = PerfilReivindicarRouteImport.update({
   id: '/perfil/reivindicar',
   path: '/perfil/reivindicar',
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/perfil/reivindicar': typeof PerfilReivindicarRoute
+  '/analytics/': typeof AnalyticsIndexRoute
   '/artigos/': typeof ArtigosIndexRoute
   '/atividade/': typeof AtividadeIndexRoute
   '/autores/': typeof AutoresIndexRoute
@@ -162,6 +169,7 @@ export interface FileRoutesByTo {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/perfil/reivindicar': typeof PerfilReivindicarRoute
+  '/analytics': typeof AnalyticsIndexRoute
   '/artigos': typeof ArtigosIndexRoute
   '/atividade': typeof AtividadeIndexRoute
   '/autores': typeof AutoresIndexRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/perfil/reivindicar': typeof PerfilReivindicarRoute
+  '/analytics/': typeof AnalyticsIndexRoute
   '/artigos/': typeof ArtigosIndexRoute
   '/atividade/': typeof AtividadeIndexRoute
   '/autores/': typeof AutoresIndexRoute
@@ -209,6 +218,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/perfil/reivindicar'
+    | '/analytics/'
     | '/artigos/'
     | '/atividade/'
     | '/autores/'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/perfil/reivindicar'
+    | '/analytics'
     | '/artigos'
     | '/atividade'
     | '/autores'
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/reset-password'
     | '/perfil/reivindicar'
+    | '/analytics/'
     | '/artigos/'
     | '/atividade/'
     | '/autores/'
@@ -276,6 +288,7 @@ export interface RootRouteChildren {
   AuthLoginRoute: typeof AuthLoginRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   PerfilReivindicarRoute: typeof PerfilReivindicarRoute
+  AnalyticsIndexRoute: typeof AnalyticsIndexRoute
   ArtigosIndexRoute: typeof ArtigosIndexRoute
   AtividadeIndexRoute: typeof AtividadeIndexRoute
   AutoresIndexRoute: typeof AutoresIndexRoute
@@ -376,6 +389,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ArtigosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/analytics/': {
+      id: '/analytics/'
+      path: '/analytics'
+      fullPath: '/analytics/'
+      preLoaderRoute: typeof AnalyticsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/perfil/reivindicar': {
       id: '/perfil/reivindicar'
       path: '/perfil/reivindicar'
@@ -444,6 +464,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthLoginRoute: AuthLoginRoute,
   AuthResetPasswordRoute: AuthResetPasswordRoute,
   PerfilReivindicarRoute: PerfilReivindicarRoute,
+  AnalyticsIndexRoute: AnalyticsIndexRoute,
   ArtigosIndexRoute: ArtigosIndexRoute,
   AtividadeIndexRoute: AtividadeIndexRoute,
   AutoresIndexRoute: AutoresIndexRoute,

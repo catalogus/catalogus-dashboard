@@ -15,6 +15,7 @@ import {
   Settings,
   Activity,
   LogOut,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -48,14 +49,15 @@ type NavItem = {
 
 const adminNavItems: NavItem[] = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/", iconColor: "text-primary" },
+  { title: "Analytics", icon: BarChart3, href: "/analytics", iconColor: "text-purple-500" },
   { title: "Slides do Hero", icon: Image, href: "/hero-slides", iconColor: "text-violet-500" },
   { title: "Artigos", icon: FileText, href: "/artigos", iconColor: "text-blue-500" },
-  { title: "Mapas Literários", icon: Library, href: "/mapas-literarios", iconColor: "text-emerald-500" },
+  { title: "Mapas Literarios", icon: Library, href: "/mapas-literarios", iconColor: "text-emerald-500" },
   { title: "Livros", icon: Book, href: "/livros", iconColor: "text-amber-500" },
   { title: "Pedidos", icon: ShoppingCart, href: "/pedidos", iconColor: "text-orange-500" },
-  { title: "Usuários", icon: Users, href: "/usuarios", iconColor: "text-cyan-500" },
+  { title: "Usuarios", icon: Users, href: "/usuarios", iconColor: "text-cyan-500" },
   { title: "Autores", icon: UserPen, href: "/autores", iconColor: "text-rose-500" },
-  { title: "Reivindicações de Autor", icon: UserCheck, href: "/reivindicacoes", iconColor: "text-sky-500" },
+  { title: "Reivindicacoes de Autor", icon: UserCheck, href: "/reivindicacoes", iconColor: "text-sky-500" },
   { title: "Atividade", icon: Activity, href: "/atividade", iconColor: "text-emerald-500" },
   { title: "Conta", icon: Settings, href: "/conta", iconColor: "text-zinc-500" },
 ];
