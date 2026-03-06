@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { SidebarProvider } from '@/components/ui/sidebar'
+import { SuperAdminGuard } from '@/components/super-admin-guard'
 
 const PedidosContent = lazy(async () => {
   const module = await import('@/components/dashboard/pedidos-content')
@@ -22,7 +23,9 @@ function PedidosPage() {
           <DashboardHeader />
           <main className="w-full flex-1 overflow-auto">
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Carregando pedidos...</div>}>
-              <PedidosContent />
+              <SuperAdminGuard>
+                <PedidosContent />
+              </SuperAdminGuard>
             </Suspense>
           </main>
         </div>

@@ -974,6 +974,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          admin_level: Database["public"]["Enums"]["admin_level"] | null
           author_gallery: Json | null
           author_type: string | null
           bio: string | null
@@ -996,6 +997,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_level?: Database["public"]["Enums"]["admin_level"] | null
           author_gallery?: Json | null
           author_type?: string | null
           bio?: string | null
@@ -1018,6 +1020,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_level?: Database["public"]["Enums"]["admin_level"] | null
           author_gallery?: Json | null
           author_type?: string | null
           bio?: string | null
@@ -1474,6 +1477,7 @@ export type Database = {
       }
     }
     Enums: {
+      admin_level: "super_admin" | "content_admin"
       author_status: "pending" | "approved" | "rejected"
       claim_status: "unclaimed" | "pending" | "approved" | "rejected"
       content_status: "draft" | "published" | "scheduled" | "trash" | "pending"
@@ -1614,6 +1618,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      admin_level: ["super_admin", "content_admin"],
       author_status: ["pending", "approved", "rejected"],
       claim_status: ["unclaimed", "pending", "approved", "rejected"],
       content_status: ["draft", "published", "scheduled", "trash", "pending"],

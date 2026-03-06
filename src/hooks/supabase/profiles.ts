@@ -70,6 +70,39 @@ export function useCreateProfile() {
   })
 }
 
+export function useInviteStaffUser() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      name,
+      email,
+      adminLevel,
+    }: {
+      name: string
+      email: string
+      adminLevel: 'super_admin' | 'content_admin'
+    }) => {
+      const { data, error } = await supabase.functions.invoke('invite-staff-user', {
+        body: {
+          name,
+          email,
+          admin_level: adminLevel,
+        },
+      })
+
+      if (error) throw error
+      if (data?.error) throw new Error(String(data.error))
+
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.stats() })
+    },
+  })
+}
+
 export function useUpdateProfile() {
   const queryClient = useQueryClient()
   return useMutation({

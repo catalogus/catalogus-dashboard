@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useDashboardMetrics } from "@/hooks/supabase/dashboard";
+import { useAuth } from "@/lib/auth-context";
 
 type RangePreset = "today" | "7d" | "30d" | "90d" | "custom";
 
@@ -39,6 +40,8 @@ type DashboardMetrics = {
     low_stock?: number;
     digital_books?: number;
     physical_books?: number;
+    new_users?: number;
+    total_posts?: number;
   };
   summary_compare?: Record<string, number | null>;
   trend?: Array<{ date: string; revenue: number; total_orders: number }>;
@@ -118,6 +121,8 @@ function TrendChart({ data }: { data: Array<{ date: string; revenue: number; tot
 }
 
 export function DashboardContent() {
+  const { role, profile } = useAuth();
+  const includeCommerce = role === "admin" && profile?.admin_level === "super_admin";
   const [rangePreset, setRangePreset] = useState<RangePreset>("7d");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -134,21 +139,30 @@ export function DashboardContent() {
     return end < start ? { start: end, end: start } : { start, end };
   }, [rangePreset, customStart, customEnd, today]);
 
-  const { data, isLoading, isError, isFetching, refetch } = useDashboardMetrics(range.start, range.end);
+  const { data, isLoading, isError, isFetching, refetch } = useDashboardMetrics(range.start, range.end, includeCommerce);
   const metrics = (data || {}) as DashboardMetrics;
   const summary = metrics.summary || {};
   const compare = metrics.summary_compare || {};
 
-  const kpis = [
-    { label: "Receita", value: fmtCurrency(summary.revenue), delta: calcDelta(summary.revenue, compare.revenue as number | null), helper: "vs período anterior" },
-    { label: "Pedidos pagos", value: fmtNumber(summary.paid_orders), delta: calcDelta(summary.paid_orders, compare.paid_orders as number | null), helper: "vs período anterior" },
-    { label: "Total pedidos", value: fmtNumber(summary.total_orders), delta: calcDelta(summary.total_orders, compare.total_orders as number | null), helper: "vs período anterior" },
-    { label: "Valor médio", value: fmtCurrency(summary.avg_order_value), delta: calcDelta(summary.avg_order_value, compare.avg_order_value as number | null), helper: "vs período anterior" },
-    { label: "Taxa paga", value: fmtPercent(summary.paid_rate), delta: calcDelta(summary.paid_rate, compare.paid_rate as number | null), helper: "vs período anterior" },
-    { label: "Novos clientes", value: fmtNumber(summary.new_customers), delta: calcDelta(summary.new_customers, compare.new_customers as number | null), helper: "vs período anterior" },
-    { label: "Livros activos", value: fmtNumber(summary.active_books), delta: "", helper: "Actualmente activos" },
-    { label: "Stock baixo", value: fmtNumber(summary.low_stock), delta: "", helper: "Limite: 5" },
-  ];
+  const kpis = includeCommerce
+    ? [
+        { label: "Receita", value: fmtCurrency(summary.revenue), delta: calcDelta(summary.revenue, compare.revenue as number | null), helper: "vs período anterior" },
+        { label: "Pedidos pagos", value: fmtNumber(summary.paid_orders), delta: calcDelta(summary.paid_orders, compare.paid_orders as number | null), helper: "vs período anterior" },
+        { label: "Total pedidos", value: fmtNumber(summary.total_orders), delta: calcDelta(summary.total_orders, compare.total_orders as number | null), helper: "vs período anterior" },
+        { label: "Valor médio", value: fmtCurrency(summary.avg_order_value), delta: calcDelta(summary.avg_order_value, compare.avg_order_value as number | null), helper: "vs período anterior" },
+        { label: "Taxa paga", value: fmtPercent(summary.paid_rate), delta: calcDelta(summary.paid_rate, compare.paid_rate as number | null), helper: "vs período anterior" },
+        { label: "Novos clientes", value: fmtNumber(summary.new_customers), delta: calcDelta(summary.new_customers, compare.new_customers as number | null), helper: "vs período anterior" },
+        { label: "Livros activos", value: fmtNumber(summary.active_books), delta: "", helper: "Actualmente activos" },
+        { label: "Stock baixo", value: fmtNumber(summary.low_stock), delta: "", helper: "Limite: 5" },
+      ]
+    : [
+        { label: "Novos utilizadores", value: fmtNumber(summary.new_users), delta: "", helper: "No período" },
+        { label: "Artigos publicados", value: fmtNumber(summary.total_posts), delta: "", helper: "Total actual" },
+        { label: "Livros activos", value: fmtNumber(summary.active_books), delta: "", helper: "Actualmente activos" },
+        { label: "Stock baixo", value: fmtNumber(summary.low_stock), delta: "", helper: "Limite: 5" },
+        { label: "Newsletter", value: fmtNumber(summary.newsletter_signups), delta: "", helper: "Inscrições" },
+        { label: "Newsletter verificada", value: fmtNumber(summary.newsletter_verified), delta: "", helper: "Emails confirmados" },
+      ];
 
   return (
     <main className="w-full overflow-y-auto overflow-x-hidden p-4 h-full">
@@ -214,8 +228,9 @@ export function DashboardContent() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card className="lg:col-span-2">
+        {includeCommerce && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card className="lg:col-span-2">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Tendencia de Receita e Pedidos</CardTitle>
               <CardDescription>Totais diarios para o intervalo seleccionado.</CardDescription>
@@ -227,9 +242,9 @@ export function DashboardContent() {
               </div>
               <TrendChart data={metrics.trend || []} />
             </CardContent>
-          </Card>
+            </Card>
 
-          <Card>
+            <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Estado dos Pedidos</CardTitle>
               <CardDescription>Distribuicao por estado.</CardDescription>
@@ -248,11 +263,13 @@ export function DashboardContent() {
                 )}
               </div>
             </CardContent>
-          </Card>
-        </div>
+            </Card>
+          </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card className="lg:col-span-2">
+        {includeCommerce && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card className="lg:col-span-2">
             <CardHeader className="pb-2 flex flex-row items-start justify-between">
               <div>
                 <CardTitle className="text-base">Livros Mais Vendidos</CardTitle>
@@ -288,9 +305,9 @@ export function DashboardContent() {
                 </Table>
               )}
             </CardContent>
-          </Card>
+            </Card>
 
-          <Card>
+            <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Saude do Inventario</CardTitle>
               <CardDescription>Estado do stock fisico e divisao digital.</CardDescription>
@@ -331,11 +348,13 @@ export function DashboardContent() {
                 </div>
               </div>
             </CardContent>
-          </Card>
-        </div>
+            </Card>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card className="lg:col-span-2">
+          {includeCommerce && (
+            <Card className="lg:col-span-2">
             <CardHeader className="pb-2 flex flex-row items-start justify-between">
               <div>
                 <CardTitle className="text-base">Pedidos Recentes</CardTitle>
@@ -373,7 +392,8 @@ export function DashboardContent() {
                 </Table>
               )}
             </CardContent>
-          </Card>
+            </Card>
+          )}
 
           <Card>
             <CardHeader className="pb-2">
