@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,6 +52,14 @@ type ProfileFormPayload = {
   featured?: boolean;
 };
 
+type ProfileStats = {
+  total: number;
+  admins: number;
+  authors: number;
+  pending: number;
+  pendingSetup: number;
+};
+
 export function UsuariosContent() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -63,7 +72,7 @@ export function UsuariosContent() {
   const [inviteAdminLevel, setInviteAdminLevel] = useState<'super_admin' | 'content_admin'>('content_admin');
   
   const { data: profiles, isLoading } = useProfiles();
-  const { data: stats } = useProfileStats();
+  const { data: stats } = useProfileStats() as { data: ProfileStats | undefined };
   const createMutation = useCreateProfile();
   const inviteMutation = useInviteStaffUser();
   const updateMutation = useUpdateProfile();
@@ -83,7 +92,10 @@ export function UsuariosContent() {
     }
   };
 
-  const getStatusBadge = (status: string | null) => {
+  const getStatusBadge = (status: string | null, mustSetPassword?: boolean) => {
+    if (mustSetPassword) {
+      return <Badge className="bg-sky-500/15 text-sky-700 hover:bg-sky-500/20">setup pendente</Badge>;
+    }
     if (!status) return <span className="text-muted-foreground">—</span>;
     switch (status) {
       case "approved":
@@ -174,7 +186,7 @@ export function UsuariosContent() {
 
     toast.promise(promise, {
       loading: 'A enviar convite de staff...',
-      success: 'Convite enviado',
+      success: 'Convite enviado. O utilizador terá de definir uma senha antes do primeiro acesso.',
       error: 'Falha ao enviar convite',
     });
 
@@ -260,7 +272,7 @@ export function UsuariosContent() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="border rounded-lg p-4 bg-card">
             <p className="text-xs font-medium text-muted-foreground uppercase">Total Utilizadores</p>
             <p className="text-3xl font-bold mt-1">{stats?.total || 0}</p>
@@ -281,13 +293,20 @@ export function UsuariosContent() {
             <p className="text-3xl font-bold mt-1 text-amber-600">{stats?.pending || 0}</p>
             <p className="text-xs text-muted-foreground mt-1">Status de autor pendente</p>
           </div>
+          <div className="border rounded-lg p-4 bg-card col-span-2 lg:col-span-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase">Setup de Staff</p>
+            <p className="text-3xl font-bold mt-1 text-sky-700">{stats?.pendingSetup || 0}</p>
+            <p className="text-xs text-muted-foreground mt-1">Admins convidados que ainda precisam definir senha</p>
+          </div>
         </div>
 
         <div className="rounded-lg border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold">Convidar staff admin</h2>
-              <p className="text-xs text-muted-foreground">Criacao por convite por email (recomendado)</p>
+              <p className="text-xs text-muted-foreground">
+                Criação por convite por email. O utilizador terá de definir a senha antes do primeiro acesso ao painel.
+              </p>
             </div>
             <Badge variant="outline">Super Admin: {superAdminCount}/2</Badge>
           </div>
@@ -377,7 +396,7 @@ export function UsuariosContent() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{profile.email || '—'}</TableCell>
                   <TableCell>{getRoleBadge(profile.role, profile.admin_level)}</TableCell>
-                  <TableCell>{getStatusBadge(profile.status)}</TableCell>
+                  <TableCell>{getStatusBadge(profile.status, profile.must_set_password)}</TableCell>
                   <TableCell className="text-muted-foreground">{formatDate(profile.created_at)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -477,10 +496,9 @@ export function UsuariosContent() {
               {!editingProfile && selectedFormRole !== 'admin' && (
                 <div className="space-y-3">
                   <Label htmlFor="password">Senha *</Label>
-                  <Input 
+                  <PasswordInput 
                     id="password" 
                     name="password"
-                    type="password"
                     placeholder="Mínimo 6 caracteres" 
                     required
                     minLength={6}

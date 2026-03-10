@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -27,14 +27,24 @@ export function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { user, role, loading: authLoading, recoveryMode, updatePassword, signOut } = useAuth()
+  const {
+    user,
+    role,
+    mustSetPassword,
+    loading: authLoading,
+    recoveryMode,
+    updatePassword,
+    completeInviteSetup,
+    signOut,
+  } = useAuth()
   const navigate = useNavigate()
 
   const rules = useMemo(() => validatePassword(password), [password])
   const passwordStrong = rules.every((rule) => rule.ok)
   const allowedRole = role === 'admin' || role === 'author'
+  const isInviteSetupFlow = role === 'admin' && mustSetPassword
 
-  const invalidRecoveryContext = !authLoading && (!user || !recoveryMode)
+  const invalidRecoveryContext = !authLoading && (!user || (!recoveryMode && !isInviteSetupFlow))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,6 +72,15 @@ export function ResetPasswordPage() {
       setError(error.message || 'Falha ao redefinir a senha.')
       setLoading(false)
       return
+    }
+
+    if (isInviteSetupFlow) {
+      const { error: completionError } = await completeInviteSetup()
+      if (completionError) {
+        setError(completionError.message || 'Falha ao activar a conta de staff.')
+        setLoading(false)
+        return
+      }
     }
 
     setDone(true)
@@ -126,14 +145,22 @@ export function ResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Nova senha</CardTitle>
-          <CardDescription className="text-center">Defina uma senha forte para a sua conta.</CardDescription>
+          <CardTitle className="text-2xl font-bold text-center">
+            {isInviteSetupFlow ? 'Activar conta de staff' : 'Nova senha'}
+          </CardTitle>
+          <CardDescription className="text-center">
+            {isInviteSetupFlow
+              ? 'Defina uma senha forte para concluir a activação antes de aceder ao painel.'
+              : 'Defina uma senha forte para a sua conta.'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {done ? (
             <div className="space-y-4">
               <p className="p-3 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md">
-                Senha actualizada com sucesso.
+                {isInviteSetupFlow
+                  ? 'Conta activada com sucesso. Entre novamente para aceder ao painel.'
+                  : 'Senha actualizada com sucesso.'}
               </p>
               <Button
                 className="w-full bg-amber-600 hover:bg-amber-700"
@@ -151,11 +178,16 @@ export function ResetPasswordPage() {
                 <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">{error}</div>
               )}
 
+              {isInviteSetupFlow && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  Está a concluir a activação da sua conta de staff. O acesso ao painel só será liberado depois desta etapa.
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="password">Nova senha</Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -164,11 +196,12 @@ export function ResetPasswordPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirmar senha</Label>
-                <Input
+                <PasswordInput
                   id="confirm-password"
-                  type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  showLabel="Mostrar confirmação da senha"
+                  hideLabel="Ocultar confirmação da senha"
                   required
                 />
               </div>
@@ -185,7 +218,13 @@ export function ResetPasswordPage() {
               </div>
 
               <Button type="submit" className="w-full bg-amber-600 hover:bg-amber-700" disabled={loading}>
-                {loading ? 'A actualizar...' : 'Actualizar senha'}
+                {loading
+                  ? isInviteSetupFlow
+                    ? 'A activar conta...'
+                    : 'A actualizar...'
+                  : isInviteSetupFlow
+                    ? 'Activar conta'
+                    : 'Actualizar senha'}
               </Button>
             </form>
           )}

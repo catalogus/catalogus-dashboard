@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { logAuditEvent } from "@/lib/audit";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -307,11 +308,12 @@ export function AccountSettingsContent() {
 
           <div className="space-y-2">
             <Label htmlFor="acc-email-password">Senha actual</Label>
-            <Input
+            <PasswordInput
               id="acc-email-password"
-              type="password"
               value={emailCurrentPassword}
               onChange={(e) => setEmailCurrentPassword(e.target.value)}
+              showLabel="Mostrar senha actual"
+              hideLabel="Ocultar senha actual"
             />
           </div>
 
@@ -334,31 +336,34 @@ export function AccountSettingsContent() {
 
           <div className="space-y-2">
             <Label htmlFor="acc-password-current">Senha actual</Label>
-            <Input
+            <PasswordInput
               id="acc-password-current"
-              type="password"
               value={passwordCurrentPassword}
               onChange={(e) => setPasswordCurrentPassword(e.target.value)}
+              showLabel="Mostrar senha actual"
+              hideLabel="Ocultar senha actual"
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="acc-password-new">Nova senha</Label>
-            <Input
+            <PasswordInput
               id="acc-password-new"
-              type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              showLabel="Mostrar nova senha"
+              hideLabel="Ocultar nova senha"
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="acc-password-confirm">Confirmar nova senha</Label>
-            <Input
+            <PasswordInput
               id="acc-password-confirm"
-              type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              showLabel="Mostrar confirmação da nova senha"
+              hideLabel="Ocultar confirmação da nova senha"
             />
           </div>
 

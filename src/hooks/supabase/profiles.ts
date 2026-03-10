@@ -18,7 +18,7 @@ export function useProfileStats() {
   return useQuery({
     queryKey: queryKeys.profiles.stats(),
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('role, status')
+      const { data, error } = await supabase.from('profiles').select('role, status, must_set_password')
       if (error) throw error
 
       return {
@@ -26,6 +26,7 @@ export function useProfileStats() {
         admins: data?.filter((p) => p.role === 'admin').length || 0,
         authors: data?.filter((p) => p.role === 'author').length || 0,
         pending: data?.filter((p) => p.status === 'pending').length || 0,
+        pendingSetup: data?.filter((p) => p.role === 'admin' && p.must_set_password).length || 0,
       }
     },
   })

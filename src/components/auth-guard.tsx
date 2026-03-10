@@ -10,7 +10,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { user, role, profile, loading, signOut } = useAuth()
+  const { user, role, profile, mustSetPassword, loading, signOut } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -41,12 +41,20 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }
 
   const customerBlocked = !!user && !loading && effectiveRole === 'customer'
+  const setupBlockedAdmin = !!user && !loading && effectiveRole === 'admin' && mustSetPassword
   const unauthorized = !!user && !loading && !isAuthRoute && !isAllowedForRole()
 
   useEffect(() => {
     if (!loading && !user && pathname === '/auth/login') return
 
     if (!loading && !user && isAuthRoute) return
+
+    if (setupBlockedAdmin) {
+      if (!isResetPasswordRoute) {
+        navigate({ to: '/auth/reset-password', replace: true })
+      }
+      return
+    }
 
     if (!loading && user && isAuthRoute && !isResetPasswordRoute) {
       navigate({ to: defaultRoute, replace: true })
@@ -61,6 +69,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     defaultRoute,
     loading,
     user,
+    setupBlockedAdmin,
     isAuthRoute,
     pathname,
     isResetPasswordRoute,
@@ -79,6 +88,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
       return <>{children}</>
     }
     return <LoginPage />
+  }
+
+  if (setupBlockedAdmin && !isResetPasswordRoute) {
+    return null
   }
 
   if (isAuthRoute && !isResetPasswordRoute) {

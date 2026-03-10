@@ -109,6 +109,7 @@ serve(async (req) => {
         email,
         role: "admin",
         admin_level: adminLevel,
+        must_set_password: true,
       },
       { onConflict: "id" },
     );
