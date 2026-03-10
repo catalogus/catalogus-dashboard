@@ -83,7 +83,18 @@ export function useInviteStaffUser() {
       email: string
       adminLevel: 'super_admin' | 'content_admin'
     }) => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('You must be signed in to invite staff users.')
+      }
+
       const { data, error } = await supabase.functions.invoke('invite-staff-user', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: {
           name,
           email,
