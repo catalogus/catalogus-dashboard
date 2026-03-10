@@ -5,6 +5,8 @@ import { queryKeys } from '@/hooks/supabase/query-keys'
 import { AuthContext, type Profile } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 
+const cmsUrl = import.meta.env.VITE_CMS_URL?.replace(/\/$/, '')
+
 async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | null = null
 
@@ -142,7 +144,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient])
 
   const requestPasswordReset = useCallback(async (email: string) => {
-    const redirectTo = `${window.location.origin}/auth/reset-password`
+    const redirectBase = cmsUrl || window.location.origin
+    const redirectTo = `${redirectBase}/auth/reset-password`
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
     return { error }
   }, [])
