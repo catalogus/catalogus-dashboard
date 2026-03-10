@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { Suspense, lazy, useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Toggle } from "@/components/ui/toggle";
 import { Button } from "@/components/ui/button";
-import { RichTextEditor, EditorRef } from "@/components/ui/richtext-editor";
+import type { EditorRef } from "@/components/ui/richtext-editor";
 import { ArticleEditorHeader } from "./article-editor-header";
 import { ArticleEditorSidebar } from "./article-editor-sidebar";
 import {
@@ -31,6 +31,11 @@ type TranslationStatus = Database["public"]["Enums"]["translation_status"] | nul
 interface ArticleEditorProps {
   postId?: string;
 }
+
+const RichTextEditor = lazy(async () => {
+  const module = await import("@/components/ui/richtext-editor");
+  return { default: module.RichTextEditor };
+});
 
 export function ArticleEditor({ postId }: ArticleEditorProps) {
   const navigate = useNavigate();
@@ -355,16 +360,18 @@ export function ArticleEditor({ postId }: ArticleEditorProps) {
                 }}
               />
               
-              <RichTextEditor
-                ref={editorRef}
-                content={body}
-                onChange={(content) => {
-                  setBody(content);
-                  handleChange();
-                }}
-                placeholder="Comece a escrever..."
-                className="border-0"
-              />
+              <Suspense fallback={<div className="min-h-[400px] animate-pulse rounded-md bg-muted/40" />}>
+                <RichTextEditor
+                  ref={editorRef}
+                  content={body}
+                  onChange={(content) => {
+                    setBody(content);
+                    handleChange();
+                  }}
+                  placeholder="Comece a escrever..."
+                  className="border-0"
+                />
+              </Suspense>
             </div>
           </div>
         </main>

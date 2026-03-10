@@ -10,7 +10,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { user, role, loading, signOut } = useAuth()
+  const { user, role, profile, loading, signOut } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -24,7 +24,15 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   const isAllowedForRole = () => {
     if (!effectiveRole) return true
-    if (effectiveRole === 'admin') return true
+    if (effectiveRole === 'admin') {
+      if (profile?.admin_level === 'content_admin') {
+        if (pathname.startsWith('/pedidos') || pathname.startsWith('/usuarios')) {
+          return false
+        }
+      }
+
+      return true
+    }
     if (effectiveRole === 'author') {
       return pathname === '/perfil' || pathname === '/perfil/reivindicar' || pathname.startsWith('/conta')
     }

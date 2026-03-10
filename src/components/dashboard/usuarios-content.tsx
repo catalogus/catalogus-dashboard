@@ -32,14 +32,16 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { useProfiles, useProfileStats, useCreateProfile, useUpdateProfile, useDeleteProfile } from "@/hooks/supabase/profiles";
+import { useProfiles, useProfileStats, useCreateProfile, useUpdateProfile, useDeleteProfile, useInviteStaffUser } from "@/hooks/supabase/profiles";
 import type { Profile, ProfileInsert } from "@/lib/supabase";
+import { toast } from "sonner";
 
 type ProfileFormPayload = {
   name: string;
   email: string;
   phone: string | null;
   role: 'admin' | 'author' | 'customer';
+  admin_level?: 'super_admin' | 'content_admin' | null;
   status: 'pending' | 'approved' | 'rejected';
   author_type?: string | null;
   bio?: string | null;
@@ -55,17 +57,23 @@ export function UsuariosContent() {
   const [selectedRole, setSelectedRole] = useState("all");
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [selectedFormRole, setSelectedFormRole] = useState<string>("customer");
+  const [selectedAdminLevel, setSelectedAdminLevel] = useState<'super_admin' | 'content_admin'>('content_admin');
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteAdminLevel, setInviteAdminLevel] = useState<'super_admin' | 'content_admin'>('content_admin');
   
   const { data: profiles, isLoading } = useProfiles();
   const { data: stats } = useProfileStats();
   const createMutation = useCreateProfile();
+  const inviteMutation = useInviteStaffUser();
   const updateMutation = useUpdateProfile();
   const deleteMutation = useDeleteProfile();
+  const superAdminCount = (profiles ?? []).filter((profile) => profile.role === 'admin' && profile.admin_level === 'super_admin').length;
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadge = (role: string, adminLevel?: string | null) => {
     switch (role) {
       case "admin":
-        return <Badge className="bg-blue-500/15 text-blue-600 hover:bg-blue-500/20">admin</Badge>;
+        return <Badge className="bg-blue-500/15 text-blue-600 hover:bg-blue-500/20">{adminLevel === 'super_admin' ? 'admin (super)' : 'admin (content)'}</Badge>;
       case "author":
         return <Badge className="bg-amber-500/15 text-amber-600 hover:bg-amber-500/20">author</Badge>;
       case "customer":
@@ -120,9 +128,30 @@ export function UsuariosContent() {
       profileData.featured = formData.get('featured') === 'on';
     }
 
+    if (role === 'admin') {
+      profileData.admin_level = (formData.get('adminLevel') as 'super_admin' | 'content_admin') || selectedAdminLevel;
+    }
+
     if (editingProfile) {
       await updateMutation.mutateAsync({ id: editingProfile.id, ...profileData });
     } else {
+      if (role === 'admin') {
+        const invitePromise = inviteMutation.mutateAsync({
+          name: profileData.name,
+          email: profileData.email,
+          adminLevel: profileData.admin_level ?? 'content_admin',
+        });
+        toast.promise(invitePromise, {
+          loading: 'A enviar convite de admin...',
+          success: 'Convite enviado com sucesso',
+          error: 'Falha ao enviar convite',
+        });
+        await invitePromise;
+        setIsSheetOpen(false);
+        setEditingProfile(null);
+        return;
+      }
+
       const password = formData.get('password') as string;
       if (!password) {
         alert('Senha é obrigatória para novos usuários');
@@ -135,10 +164,47 @@ export function UsuariosContent() {
     setEditingProfile(null);
   };
 
+  const handleInviteQuick = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const promise = inviteMutation.mutateAsync({
+      name: inviteName,
+      email: inviteEmail,
+      adminLevel: inviteAdminLevel,
+    });
+
+    toast.promise(promise, {
+      loading: 'A enviar convite de staff...',
+      success: 'Convite enviado',
+      error: 'Falha ao enviar convite',
+    });
+
+    await promise;
+    setInviteName("");
+    setInviteEmail("");
+    setInviteAdminLevel('content_admin');
+  };
+
   const handleEdit = (profile: Profile) => {
     setEditingProfile(profile);
     setSelectedFormRole(profile.role);
+    setSelectedAdminLevel(profile.admin_level ?? 'content_admin');
     setIsSheetOpen(true);
+  };
+
+  const handleMakeAdmin = async (profile: Profile, adminLevel: 'super_admin' | 'content_admin') => {
+    const promise = updateMutation.mutateAsync({
+      id: profile.id,
+      role: 'admin',
+      admin_level: adminLevel,
+    });
+
+    toast.promise(promise, {
+      loading: 'A actualizar nivel de admin...',
+      success: 'Nivel de admin actualizado',
+      error: 'Falha ao actualizar nivel de admin',
+    });
+
+    await promise;
   };
 
   const handleDelete = async (id: string) => {
@@ -185,6 +251,7 @@ export function UsuariosContent() {
             onClick={() => {
               setEditingProfile(null);
               setSelectedFormRole("customer");
+              setSelectedAdminLevel('content_admin');
               setIsSheetOpen(true);
             }}
           >
@@ -214,6 +281,43 @@ export function UsuariosContent() {
             <p className="text-3xl font-bold mt-1 text-amber-600">{stats?.pending || 0}</p>
             <p className="text-xs text-muted-foreground mt-1">Status de autor pendente</p>
           </div>
+        </div>
+
+        <div className="rounded-lg border bg-card p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold">Convidar staff admin</h2>
+              <p className="text-xs text-muted-foreground">Criacao por convite por email (recomendado)</p>
+            </div>
+            <Badge variant="outline">Super Admin: {superAdminCount}/2</Badge>
+          </div>
+          <form className="grid grid-cols-1 md:grid-cols-4 gap-3" onSubmit={handleInviteQuick}>
+            <Input
+              placeholder="Nome completo"
+              value={inviteName}
+              onChange={(e) => setInviteName(e.target.value)}
+              required
+            />
+            <Input
+              type="email"
+              placeholder="admin@catalogus.co.mz"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              required
+            />
+            <Select value={inviteAdminLevel} onValueChange={(value) => setInviteAdminLevel(value as 'super_admin' | 'content_admin')}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="content_admin">Content Admin</SelectItem>
+                <SelectItem value="super_admin" disabled={superAdminCount >= 2}>Super Admin</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button type="submit" className="bg-amber-600 hover:bg-amber-700" disabled={inviteMutation.isPending}>
+              {inviteMutation.isPending ? 'A enviar...' : 'Enviar convite'}
+            </Button>
+          </form>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-3">
@@ -272,7 +376,7 @@ export function UsuariosContent() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{profile.email || '—'}</TableCell>
-                  <TableCell>{getRoleBadge(profile.role)}</TableCell>
+                  <TableCell>{getRoleBadge(profile.role, profile.admin_level)}</TableCell>
                   <TableCell>{getStatusBadge(profile.status)}</TableCell>
                   <TableCell className="text-muted-foreground">{formatDate(profile.created_at)}</TableCell>
                   <TableCell>
@@ -287,6 +391,31 @@ export function UsuariosContent() {
                           <FileEdit className="size-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
+                        {profile.role === 'admin' ? (
+                          <>
+                            <DropdownMenuItem onClick={() => handleMakeAdmin(profile, 'content_admin')}>
+                              Definir Content Admin
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={superAdminCount >= 2 && profile.admin_level !== 'super_admin'}
+                              onClick={() => handleMakeAdmin(profile, 'super_admin')}
+                            >
+                              Definir Super Admin
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateMutation.mutate({ id: profile.id, role: 'customer', admin_level: null })}>
+                              Remover acesso admin
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <>
+                            <DropdownMenuItem onClick={() => handleMakeAdmin(profile, 'content_admin')}>
+                              Tornar Content Admin
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled={superAdminCount >= 2} onClick={() => handleMakeAdmin(profile, 'super_admin')}>
+                              Tornar Super Admin
+                            </DropdownMenuItem>
+                          </>
+                        )}
                         <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(profile.id)}>
                           <Trash2 className="size-4 mr-2" />
                           Excluir
@@ -345,7 +474,7 @@ export function UsuariosContent() {
                 />
               </div>
 
-              {!editingProfile && (
+              {!editingProfile && selectedFormRole !== 'admin' && (
                 <div className="space-y-3">
                   <Label htmlFor="password">Senha *</Label>
                   <Input 
@@ -375,7 +504,7 @@ export function UsuariosContent() {
                   <Select 
                     name="role" 
                     defaultValue={editingProfile?.role || 'customer'}
-                    onValueChange={setSelectedFormRole}
+                    onValueChange={(value) => setSelectedFormRole(value)}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -401,6 +530,30 @@ export function UsuariosContent() {
                   </Select>
                 </div>
               </div>
+
+              {selectedFormRole === 'admin' && (
+                <div className="space-y-3">
+                  <Label>Nivel de Admin</Label>
+                  <Select
+                    name="adminLevel"
+                    value={selectedAdminLevel}
+                    onValueChange={(value) => setSelectedAdminLevel(value as 'super_admin' | 'content_admin')}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="content_admin">Content Admin</SelectItem>
+                      <SelectItem value="super_admin" disabled={superAdminCount >= 2 && selectedAdminLevel !== 'super_admin'}>
+                        Super Admin
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {!editingProfile && (
+                    <p className="text-xs text-muted-foreground">Contas admin novas sao criadas por convite no email.</p>
+                  )}
+                </div>
+              )}
 
               {selectedFormRole === 'author' && (
                 <>

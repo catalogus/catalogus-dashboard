@@ -1,4 +1,4 @@
-import { useEffect, useState, ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Session, User } from '@supabase/supabase-js'
 import { queryKeys } from '@/hooks/supabase/query-keys'
@@ -54,11 +54,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const profile = profileQuery.data ?? null
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!user?.id) return
     await queryClient.invalidateQueries({ queryKey: queryKeys.auth.profile(user.id) })
     await profileQuery.refetch()
-  }
+  }, [user?.id, queryClient, profileQuery])
 
   useEffect(() => {
     let mounted = true
@@ -130,50 +130,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [queryClient])
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     return { error }
-  }
+  }, [])
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut()
     queryClient.removeQueries({ queryKey: queryKeys.auth.profileRoot() })
     setRecoveryMode(false)
-  }
+  }, [queryClient])
 
-  const requestPasswordReset = async (email: string) => {
+  const requestPasswordReset = useCallback(async (email: string) => {
     const redirectTo = `${window.location.origin}/auth/reset-password`
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
     return { error }
-  }
+  }, [])
 
-  const updatePassword = async (newPassword: string) => {
+  const updatePassword = useCallback(async (newPassword: string) => {
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     if (!error) {
       setRecoveryMode(false)
     }
     return { error }
-  }
+  }, [])
 
   const loading =
     !authBootstrapped || (Boolean(user?.id) && profileQuery.status === 'pending')
 
+  const value = useMemo(
+    () => ({
+      user,
+      session,
+      profile,
+      role: profile?.role ?? null,
+      recoveryMode,
+      loading,
+      signIn,
+      signOut,
+      requestPasswordReset,
+      updatePassword,
+      refreshProfile,
+    }),
+    [
+      user,
+      session,
+      profile,
+      recoveryMode,
+      loading,
+      signIn,
+      signOut,
+      requestPasswordReset,
+      updatePassword,
+      refreshProfile,
+    ],
+  )
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        session,
-        profile,
-        role: profile?.role ?? null,
-        recoveryMode,
-        loading,
-        signIn,
-        signOut,
-        requestPasswordReset,
-        updatePassword,
-        refreshProfile,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

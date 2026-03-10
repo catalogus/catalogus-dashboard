@@ -974,6 +974,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          admin_level: Database["public"]["Enums"]["admin_level"] | null
           author_gallery: Json | null
           author_type: string | null
           bio: string | null
@@ -996,6 +997,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_level?: Database["public"]["Enums"]["admin_level"] | null
           author_gallery?: Json | null
           author_type?: string | null
           bio?: string | null
@@ -1018,6 +1020,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_level?: Database["public"]["Enums"]["admin_level"] | null
           author_gallery?: Json | null
           author_type?: string | null
           bio?: string | null
@@ -1424,6 +1427,14 @@ export type Database = {
         }
         Returns: Json
       }
+      get_admin_content_dashboard_metrics: {
+        Args: {
+          p_end_date: string
+          p_low_stock_threshold?: number
+          p_start_date: string
+        }
+        Returns: Json
+      }
       get_mpesa_transaction_status: {
         Args: { p_order_id: string }
         Returns: {
@@ -1474,6 +1485,7 @@ export type Database = {
       }
     }
     Enums: {
+      admin_level: "super_admin" | "content_admin"
       author_status: "pending" | "approved" | "rejected"
       claim_status: "unclaimed" | "pending" | "approved" | "rejected"
       content_status: "draft" | "published" | "scheduled" | "trash" | "pending"
@@ -1614,6 +1626,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      admin_level: ["super_admin", "content_admin"],
       author_status: ["pending", "approved", "rejected"],
       claim_status: ["unclaimed", "pending", "approved", "rejected"],
       content_status: ["draft", "published", "scheduled", "trash", "pending"],

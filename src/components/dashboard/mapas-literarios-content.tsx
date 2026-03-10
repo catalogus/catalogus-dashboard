@@ -63,6 +63,50 @@ const preloadPdfHelpers = () => {
   return pdfHelpersPreloadPromise
 }
 
+const deletePublicationClientSide = async (id: string) => {
+  const { data: pages } = await supabase.storage.from('publications').list(`${id}/pages`)
+  if (pages?.length) {
+    await supabase
+      .storage
+      .from('publications')
+      .remove(pages.map((f) => `${id}/pages/${f.name}`))
+  }
+
+  const { data: thumbs } = await supabase.storage.from('publications').list(`${id}/thumbnails`)
+  if (thumbs?.length) {
+    await supabase
+      .storage
+      .from('publications')
+      .remove(thumbs.map((f) => `${id}/thumbnails/${f.name}`))
+  }
+
+  await supabase.storage.from('publications').remove([`${id}/original.pdf`])
+
+  const { error } = await supabase.from('publications').delete().eq('id', id)
+  if (error) throw error
+}
+
+const deletePublicationViaApi = async (id: string) => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session?.access_token) {
+    throw new Error('Missing session for publication delete')
+  }
+
+  const response = await fetch(`/api/publications/${id}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error((await response.text()) || 'Failed to delete publication')
+  }
+}
+
 const buildSeoTitle = (value?: string | null) => {
   const title = value?.trim()
   return title ? title : null
@@ -321,28 +365,19 @@ export function MapasLiterariosContent() {
     if (!confirm('Tem certeza que deseja excluir esta publicacao?')) return
 
     try {
-      const { data: pages } = await supabase.storage.from('publications').list(`${id}/pages`)
-      if (pages?.length) {
-        await supabase
-          .storage
-          .from('publications')
-          .remove(pages.map((f) => `${id}/pages/${f.name}`))
+      try {
+        await deletePublicationViaApi(id)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : ''
+        const canFallback =
+          message.includes('not configured') ||
+          message.includes('Missing session') ||
+          message.includes('Failed to fetch')
+
+        if (!canFallback) throw error
+
+        await deletePublicationClientSide(id)
       }
-
-      const { data: thumbs } = await supabase.storage
-        .from('publications')
-        .list(`${id}/thumbnails`)
-      if (thumbs?.length) {
-        await supabase
-          .storage
-          .from('publications')
-          .remove(thumbs.map((f) => `${id}/thumbnails/${f.name}`))
-      }
-
-      await supabase.storage.from('publications').remove([`${id}/original.pdf`])
-
-      const { error } = await supabase.from('publications').delete().eq('id', id)
-      if (error) throw error
 
       await invalidate()
       toast.success('Publicacao eliminada')
