@@ -11,11 +11,12 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
+  type UmamiConfig,
+  useUmamiConfig,
   useUmamiStats,
   useUmamiPageviews,
   useUmamiMetrics,
   useUmamiActive,
-  useUmamiConfigured,
 } from "@/hooks/use-umami";
 
 type RangePreset = "today" | "7d" | "30d" | "90d";
@@ -144,25 +145,28 @@ function StatCard({ title, value, change, icon: Icon, format = "number" }: {
   );
 }
 
-export function AnalyticsContent() {
+export function AnalyticsContent({ initialConfig }: { initialConfig?: UmamiConfig }) {
   const [rangePreset, setRangePreset] = useState<RangePreset>("7d");
   const range = useMemo(() => getDateRange(rangePreset), [rangePreset]);
 
-  const isConfigured = useUmamiConfigured();
-  const statsQuery = useUmamiStats(range.start, range.end);
-  const pageviewsQuery = useUmamiPageviews(range.start, range.end);
-  const urlsQuery = useUmamiMetrics(range.start, range.end, "url", 10);
-  const referrersQuery = useUmamiMetrics(range.start, range.end, "referrer", 8);
-  const browsersQuery = useUmamiMetrics(range.start, range.end, "browser", 5);
-  const devicesQuery = useUmamiMetrics(range.start, range.end, "device", 3);
-  const countriesQuery = useUmamiMetrics(range.start, range.end, "country", 5);
-  const activeQuery = useUmamiActive();
+  const configQuery = useUmamiConfig(initialConfig);
+  const isConfigured = configQuery.data?.configured === true;
+  const isConfigLoading = configQuery.isLoading;
+  const statsQuery = useUmamiStats(range.start, range.end, isConfigured);
+  const pageviewsQuery = useUmamiPageviews(range.start, range.end, "day", isConfigured);
+  const urlsQuery = useUmamiMetrics(range.start, range.end, "url", 10, isConfigured);
+  const referrersQuery = useUmamiMetrics(range.start, range.end, "referrer", 8, isConfigured);
+  const browsersQuery = useUmamiMetrics(range.start, range.end, "browser", 5, isConfigured);
+  const devicesQuery = useUmamiMetrics(range.start, range.end, "device", 3, isConfigured);
+  const countriesQuery = useUmamiMetrics(range.start, range.end, "country", 5, isConfigured);
+  const activeQuery = useUmamiActive(isConfigured);
 
   const isLoading = statsQuery.isLoading || pageviewsQuery.isLoading;
   const isFetching = statsQuery.isFetching || pageviewsQuery.isFetching;
   const isError = statsQuery.isError || pageviewsQuery.isError;
 
   const refetch = () => {
+    configQuery.refetch();
     statsQuery.refetch();
     pageviewsQuery.refetch();
     urlsQuery.refetch();
@@ -171,6 +175,20 @@ export function AnalyticsContent() {
     devicesQuery.refetch();
     countriesQuery.refetch();
   };
+
+  if (isConfigLoading) {
+    return (
+      <main className="w-full overflow-y-auto overflow-x-hidden p-4 h-full">
+        <div className="mx-auto w-full max-w-2xl">
+          <Card>
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              A verificar configuracao do analytics...
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    );
+  }
 
   if (!isConfigured) {
     return (
@@ -181,7 +199,7 @@ export function AnalyticsContent() {
               <Monitor className="size-12 mx-auto text-muted-foreground mb-4" />
               <h2 className="text-lg font-semibold mb-2">Analytics nao configurado</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                Adicione <code className="bg-muted px-1 rounded">VITE_UMAMI_API_TOKEN</code> ao seu ficheiro .env
+                Adicione <code className="bg-muted px-1 rounded">UMAMI_API_TOKEN</code> ao ambiente do servidor.
               </p>
               <p className="text-xs text-muted-foreground">
                 Obtenha um token API em{" "}

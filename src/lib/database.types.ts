@@ -1427,6 +1427,14 @@ export type Database = {
         }
         Returns: Json
       }
+      get_admin_content_dashboard_metrics: {
+        Args: {
+          p_end_date: string
+          p_low_stock_threshold?: number
+          p_start_date: string
+        }
+        Returns: Json
+      }
       get_mpesa_transaction_status: {
         Args: { p_order_id: string }
         Returns: {

@@ -1,10 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 
-const UMAMI_BASE_URL = 'https://cloud.umami.is'
-const WEBSITE_ID = '20a42f0d-d00b-47b2-8597-0564396b24bc'
+const UMAMI_PROXY_BASE_URL = '/api/umami'
 
-function getApiToken() {
-  return import.meta.env.VITE_UMAMI_API_TOKEN
+function buildProxyUrl(endpoint: string, params: Record<string, string | number>) {
+  const normalizedEndpoint = endpoint.replace(/^\//, '')
+  const url = new URL(`${UMAMI_PROXY_BASE_URL}/${normalizedEndpoint}`, window.location.origin)
+
+  Object.entries(params).forEach(([key, value]) => {
+    url.searchParams.set(key, String(value))
+  })
+
+  return url.toString()
 }
 
 function dateToTimestamp(date: Date): number {
@@ -38,31 +44,49 @@ type UmamiMetrics = {
 type UmamiActive = number
 
 async function fetchUmami<T>(endpoint: string, params: Record<string, string | number>): Promise<T> {
-  const token = getApiToken()
-  if (!token) {
-    throw new Error('VITE_UMAMI_API_TOKEN is not configured')
-  }
-
-  const url = new URL(`${UMAMI_BASE_URL}/api/websites/${WEBSITE_ID}${endpoint}`)
-  Object.entries(params).forEach(([key, value]) => {
-    url.searchParams.set(key, String(value))
-  })
-
-  const response = await fetch(url.toString(), {
+  const response = await fetch(buildProxyUrl(endpoint, params), {
     headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/json',
+      Accept: 'application/json',
     },
   })
 
   if (!response.ok) {
-    throw new Error(`Umami API error: ${response.status} ${response.statusText}`)
+    const message = await response.text()
+    throw new Error(message || `Umami API error: ${response.status} ${response.statusText}`)
   }
 
   return response.json()
 }
 
-export function useUmamiStats(startDate: Date, endDate: Date) {
+type UmamiConfig = {
+  configured: boolean
+}
+
+async function fetchUmamiConfig(): Promise<UmamiConfig> {
+  const response = await fetch(`${UMAMI_PROXY_BASE_URL}/config`, {
+    headers: {
+      Accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Umami config error: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+export function useUmamiConfig(initialData?: UmamiConfig) {
+  return useQuery({
+    queryKey: ['umami-config'],
+    queryFn: fetchUmamiConfig,
+    initialData,
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+}
+
+export function useUmamiStats(startDate: Date, endDate: Date, enabled: boolean) {
   return useQuery({
     queryKey: ['umami-stats', startDate.toISOString(), endDate.toISOString()],
     queryFn: () => fetchUmami<UmamiStats>('/stats', {
@@ -70,11 +94,16 @@ export function useUmamiStats(startDate: Date, endDate: Date) {
       endAt: dateToTimestamp(endDate),
     }),
     staleTime: 60_000,
-    enabled: !!getApiToken(),
+    enabled,
   })
 }
 
-export function useUmamiPageviews(startDate: Date, endDate: Date, unit: 'hour' | 'day' = 'day') {
+export function useUmamiPageviews(
+  startDate: Date,
+  endDate: Date,
+  unit: 'hour' | 'day' = 'day',
+  enabled: boolean,
+) {
   return useQuery({
     queryKey: ['umami-pageviews', startDate.toISOString(), endDate.toISOString(), unit],
     queryFn: () => fetchUmami<UmamiPageviews>('/pageviews', {
@@ -83,11 +112,17 @@ export function useUmamiPageviews(startDate: Date, endDate: Date, unit: 'hour' |
       unit,
     }),
     staleTime: 60_000,
-    enabled: !!getApiToken(),
+    enabled,
   })
 }
 
-export function useUmamiMetrics(startDate: Date, endDate: Date, type: keyof UmamiMetrics, limit: number = 10) {
+export function useUmamiMetrics(
+  startDate: Date,
+  endDate: Date,
+  type: keyof UmamiMetrics,
+  limit: number = 10,
+  enabled: boolean,
+) {
   return useQuery({
     queryKey: ['umami-metrics', startDate.toISOString(), endDate.toISOString(), type, limit],
     queryFn: () => fetchUmami<UmamiMetricItem[]>(`/metrics`, {
@@ -97,22 +132,23 @@ export function useUmamiMetrics(startDate: Date, endDate: Date, type: keyof Umam
       limit,
     }),
     staleTime: 60_000,
-    enabled: !!getApiToken(),
+    enabled,
   })
 }
 
-export function useUmamiActive() {
+export function useUmamiActive(enabled: boolean) {
   return useQuery({
     queryKey: ['umami-active'],
     queryFn: () => fetchUmami<UmamiActive>('/active', {}),
     staleTime: 10_000,
     refetchInterval: 30_000,
-    enabled: !!getApiToken(),
+    enabled,
   })
 }
 
 export function useUmamiConfigured() {
-  return !!getApiToken()
+  const configQuery = useUmamiConfig()
+  return configQuery.data?.configured ?? false
 }
 
-export type { UmamiStats, UmamiPageviews, UmamiMetricItem, UmamiMetrics }
+export type { UmamiStats, UmamiPageviews, UmamiMetricItem, UmamiMetrics, UmamiConfig }

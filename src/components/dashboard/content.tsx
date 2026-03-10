@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
@@ -91,7 +91,7 @@ function calcDelta(current?: number | null, previous?: number | null) {
   return `${delta > 0 ? "+" : ""}${delta.toFixed(1)}%`;
 }
 
-function TrendChart({ data }: { data: Array<{ date: string; revenue: number; total_orders: number }> }) {
+const TrendChart = memo(function TrendChart({ data }: { data: Array<{ date: string; revenue: number; total_orders: number }> }) {
   if (!data.length) {
     return (
       <div className="h-48 bg-muted/30 rounded-lg flex items-center justify-center">
@@ -102,15 +102,18 @@ function TrendChart({ data }: { data: Array<{ date: string; revenue: number; tot
 
   const width = 640;
   const height = 180;
-  const maxRevenue = Math.max(...data.map((d) => d.revenue), 0);
-  const maxOrders = Math.max(...data.map((d) => d.total_orders), 0);
-  const points = data.map((point, idx) => {
-    const ratio = data.length === 1 ? 0 : idx / (data.length - 1);
-    const x = ratio * width;
-    const revenueY = height - (maxRevenue ? (point.revenue / maxRevenue) * height : 0);
-    const ordersY = height - (maxOrders ? (point.total_orders / maxOrders) * height : 0);
-    return { x, revenueY, ordersY };
-  });
+  const points = useMemo(() => {
+    const maxRevenue = Math.max(...data.map((d) => d.revenue), 0);
+    const maxOrders = Math.max(...data.map((d) => d.total_orders), 0);
+
+    return data.map((point, idx) => {
+      const ratio = data.length === 1 ? 0 : idx / (data.length - 1);
+      const x = ratio * width;
+      const revenueY = height - (maxRevenue ? (point.revenue / maxRevenue) * height : 0);
+      const ordersY = height - (maxOrders ? (point.total_orders / maxOrders) * height : 0);
+      return { x, revenueY, ordersY };
+    });
+  }, [data]);
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-48" role="img" aria-label="Tendencia de receita e pedidos">
@@ -118,7 +121,7 @@ function TrendChart({ data }: { data: Array<{ date: string; revenue: number; tot
       <polyline points={points.map((p) => `${p.x},${p.ordersY}`).join(" ")} fill="none" stroke="#3B82F6" strokeWidth="2" />
     </svg>
   );
-}
+})
 
 export function DashboardContent() {
   const { role, profile } = useAuth();
@@ -144,25 +147,29 @@ export function DashboardContent() {
   const summary = metrics.summary || {};
   const compare = metrics.summary_compare || {};
 
-  const kpis = includeCommerce
-    ? [
-        { label: "Receita", value: fmtCurrency(summary.revenue), delta: calcDelta(summary.revenue, compare.revenue as number | null), helper: "vs período anterior" },
-        { label: "Pedidos pagos", value: fmtNumber(summary.paid_orders), delta: calcDelta(summary.paid_orders, compare.paid_orders as number | null), helper: "vs período anterior" },
-        { label: "Total pedidos", value: fmtNumber(summary.total_orders), delta: calcDelta(summary.total_orders, compare.total_orders as number | null), helper: "vs período anterior" },
-        { label: "Valor médio", value: fmtCurrency(summary.avg_order_value), delta: calcDelta(summary.avg_order_value, compare.avg_order_value as number | null), helper: "vs período anterior" },
-        { label: "Taxa paga", value: fmtPercent(summary.paid_rate), delta: calcDelta(summary.paid_rate, compare.paid_rate as number | null), helper: "vs período anterior" },
-        { label: "Novos clientes", value: fmtNumber(summary.new_customers), delta: calcDelta(summary.new_customers, compare.new_customers as number | null), helper: "vs período anterior" },
-        { label: "Livros activos", value: fmtNumber(summary.active_books), delta: "", helper: "Actualmente activos" },
-        { label: "Stock baixo", value: fmtNumber(summary.low_stock), delta: "", helper: "Limite: 5" },
-      ]
-    : [
-        { label: "Novos utilizadores", value: fmtNumber(summary.new_users), delta: "", helper: "No período" },
-        { label: "Artigos publicados", value: fmtNumber(summary.total_posts), delta: "", helper: "Total actual" },
-        { label: "Livros activos", value: fmtNumber(summary.active_books), delta: "", helper: "Actualmente activos" },
-        { label: "Stock baixo", value: fmtNumber(summary.low_stock), delta: "", helper: "Limite: 5" },
-        { label: "Newsletter", value: fmtNumber(summary.newsletter_signups), delta: "", helper: "Inscrições" },
-        { label: "Newsletter verificada", value: fmtNumber(summary.newsletter_verified), delta: "", helper: "Emails confirmados" },
-      ];
+  const kpis = useMemo(
+    () =>
+      includeCommerce
+        ? [
+            { label: "Receita", value: fmtCurrency(summary.revenue), delta: calcDelta(summary.revenue, compare.revenue as number | null), helper: "vs período anterior" },
+            { label: "Pedidos pagos", value: fmtNumber(summary.paid_orders), delta: calcDelta(summary.paid_orders, compare.paid_orders as number | null), helper: "vs período anterior" },
+            { label: "Total pedidos", value: fmtNumber(summary.total_orders), delta: calcDelta(summary.total_orders, compare.total_orders as number | null), helper: "vs período anterior" },
+            { label: "Valor médio", value: fmtCurrency(summary.avg_order_value), delta: calcDelta(summary.avg_order_value, compare.avg_order_value as number | null), helper: "vs período anterior" },
+            { label: "Taxa paga", value: fmtPercent(summary.paid_rate), delta: calcDelta(summary.paid_rate, compare.paid_rate as number | null), helper: "vs período anterior" },
+            { label: "Novos clientes", value: fmtNumber(summary.new_customers), delta: calcDelta(summary.new_customers, compare.new_customers as number | null), helper: "vs período anterior" },
+            { label: "Livros activos", value: fmtNumber(summary.active_books), delta: "", helper: "Actualmente activos" },
+            { label: "Stock baixo", value: fmtNumber(summary.low_stock), delta: "", helper: "Limite: 5" },
+          ]
+        : [
+            { label: "Novos utilizadores", value: fmtNumber(summary.new_users), delta: "", helper: "No período" },
+            { label: "Artigos publicados", value: fmtNumber(summary.total_posts), delta: "", helper: "Total actual" },
+            { label: "Livros activos", value: fmtNumber(summary.active_books), delta: "", helper: "Actualmente activos" },
+            { label: "Stock baixo", value: fmtNumber(summary.low_stock), delta: "", helper: "Limite: 5" },
+            { label: "Newsletter", value: fmtNumber(summary.newsletter_signups), delta: "", helper: "Inscrições" },
+            { label: "Newsletter verificada", value: fmtNumber(summary.newsletter_verified), delta: "", helper: "Emails confirmados" },
+          ],
+    [includeCommerce, summary, compare],
+  );
 
   return (
     <main className="w-full overflow-y-auto overflow-x-hidden p-4 h-full">
