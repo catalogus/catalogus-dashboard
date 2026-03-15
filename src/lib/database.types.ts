@@ -984,6 +984,7 @@ export type Database = {
           featured: boolean | null
           featured_video: string | null
           id: string
+          must_set_password: boolean
           name: string
           phone: string | null
           photo_path: string | null
@@ -1007,6 +1008,7 @@ export type Database = {
           featured?: boolean | null
           featured_video?: string | null
           id: string
+          must_set_password?: boolean
           name: string
           phone?: string | null
           photo_path?: string | null
@@ -1030,6 +1032,7 @@ export type Database = {
           featured?: boolean | null
           featured_video?: string | null
           id?: string
+          must_set_password?: boolean
           name?: string
           phone?: string | null
           photo_path?: string | null

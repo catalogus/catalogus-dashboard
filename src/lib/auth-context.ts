@@ -9,12 +9,14 @@ export interface AuthContextType {
   session: Session | null
   profile: Profile | null
   role: Profile['role'] | null
+  mustSetPassword: boolean
   recoveryMode: boolean
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   requestPasswordReset: (email: string) => Promise<{ error: Error | null }>
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>
+  completeInviteSetup: () => Promise<{ error: Error | null }>
   refreshProfile: () => Promise<void>
 }
 

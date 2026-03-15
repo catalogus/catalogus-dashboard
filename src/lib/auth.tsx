@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   })
 
   const profile = profileQuery.data ?? null
+  const mustSetPassword = profile?.must_set_password === true
 
   const refreshProfile = useCallback(async () => {
     if (!user?.id) return
@@ -158,6 +159,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error }
   }, [])
 
+  const completeInviteSetup = useCallback(async () => {
+    const {
+      data: { session: currentSession },
+    } = await supabase.auth.getSession()
+
+    if (!currentSession?.access_token) {
+      return { error: new Error('Missing session while completing invite setup.') }
+    }
+
+    const { data, error } = await supabase.functions.invoke('complete-invite-setup', {
+      headers: {
+        Authorization: `Bearer ${currentSession.access_token}`,
+      },
+    })
+
+    if (error) return { error }
+    if (data?.error) return { error: new Error(String(data.error)) }
+
+    await refreshProfile()
+    return { error: null }
+  }, [refreshProfile])
+
   const loading =
     !authBootstrapped || (Boolean(user?.id) && profileQuery.status === 'pending')
 
@@ -167,24 +190,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       profile,
       role: profile?.role ?? null,
+      mustSetPassword,
       recoveryMode,
       loading,
       signIn,
       signOut,
       requestPasswordReset,
       updatePassword,
+      completeInviteSetup,
       refreshProfile,
     }),
     [
       user,
       session,
       profile,
+      mustSetPassword,
       recoveryMode,
       loading,
       signIn,
       signOut,
       requestPasswordReset,
       updatePassword,
+      completeInviteSetup,
       refreshProfile,
     ],
   )
