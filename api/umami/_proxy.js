@@ -4,6 +4,26 @@ const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 120
 const requestLog = new Map()
 
+function buildUpstreamUrl(endpoint, query) {
+  const baseUrl = UMAMI_BASE_URL.replace(/\/+$/, '')
+  const websitesPrefix = baseUrl.endsWith('/v1') ? 'websites' : 'api/websites'
+  const url = new URL(`${baseUrl}/${websitesPrefix}/${UMAMI_WEBSITE_ID}/${endpoint}`)
+
+  for (const [key, value] of Object.entries(query || {})) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        url.searchParams.append(key, item)
+      }
+      continue
+    }
+    if (value != null) {
+      url.searchParams.set(key, String(value))
+    }
+  }
+
+  return url
+}
+
 function setCacheHeaders(response, endpoint) {
   if (endpoint === 'active') {
     response.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60')
@@ -59,19 +79,7 @@ export async function proxyUmamiEndpoint(request, response, endpoint) {
     return
   }
 
-  const url = new URL(`${UMAMI_BASE_URL}/api/websites/${UMAMI_WEBSITE_ID}/${endpoint}`)
-
-  for (const [key, value] of Object.entries(request.query || {})) {
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        url.searchParams.append(key, item)
-      }
-      continue
-    }
-    if (value != null) {
-      url.searchParams.set(key, String(value))
-    }
-  }
+  const url = buildUpstreamUrl(endpoint, request.query)
 
   try {
     const upstreamResponse = await fetch(url, {
