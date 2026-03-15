@@ -1,4 +1,4 @@
-const UMAMI_BASE_URL = process.env.UMAMI_BASE_URL || 'https://cloud.umami.is'
+const UMAMI_BASE_URL = process.env.UMAMI_API_CLIENT_ENDPOINT || 'https://api.umami.is/v1'
 const UMAMI_WEBSITE_ID = process.env.UMAMI_WEBSITE_ID || '20a42f0d-d00b-47b2-8597-0564396b24bc'
 const ALLOWED_ENDPOINTS = new Set(['stats', 'pageviews', 'metrics', 'active'])
 const RATE_LIMIT_WINDOW_MS = 60_000
@@ -90,7 +90,7 @@ export default async function handler(request, response) {
   try {
     const upstreamResponse = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        'x-umami-api-key': token,
         Accept: 'application/json',
       },
     })
