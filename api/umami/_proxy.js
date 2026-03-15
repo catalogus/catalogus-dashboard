@@ -1,15 +1,8 @@
 const UMAMI_BASE_URL = process.env.UMAMI_API_CLIENT_ENDPOINT || 'https://api.umami.is/v1'
 const UMAMI_WEBSITE_ID = process.env.UMAMI_WEBSITE_ID || '20a42f0d-d00b-47b2-8597-0564396b24bc'
-const ALLOWED_ENDPOINTS = new Set(['stats', 'pageviews', 'metrics', 'active'])
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 120
 const requestLog = new Map()
-
-function getEndpoint(request) {
-  const endpoint = request.query?.endpoint
-  if (Array.isArray(endpoint)) return endpoint[0]
-  return endpoint
-}
 
 function setCacheHeaders(response, endpoint) {
   if (endpoint === 'active') {
@@ -46,7 +39,7 @@ function isRateLimited(request) {
   return recentRequests.length > RATE_LIMIT_MAX_REQUESTS
 }
 
-export default async function handler(request, response) {
+export async function proxyUmamiEndpoint(request, response, endpoint) {
   if (request.method !== 'GET') {
     response.setHeader('Allow', 'GET')
     response.status(405).send('Method not allowed')
@@ -60,12 +53,6 @@ export default async function handler(request, response) {
     return
   }
 
-  const endpoint = getEndpoint(request)
-  if (!endpoint || !ALLOWED_ENDPOINTS.has(endpoint)) {
-    response.status(404).send('Unknown Umami endpoint')
-    return
-  }
-
   if (isRateLimited(request)) {
     response.setHeader('Cache-Control', 'no-store')
     response.status(429).send('Too many analytics requests')
@@ -75,7 +62,6 @@ export default async function handler(request, response) {
   const url = new URL(`${UMAMI_BASE_URL}/api/websites/${UMAMI_WEBSITE_ID}/${endpoint}`)
 
   for (const [key, value] of Object.entries(request.query || {})) {
-    if (key === 'endpoint') continue
     if (Array.isArray(value)) {
       for (const item of value) {
         url.searchParams.append(key, item)
