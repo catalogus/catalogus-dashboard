@@ -94,7 +94,23 @@ function TrendChart({ data, label, color }: { data: Array<{ x: string; y: number
   );
 }
 
-function MetricList({ data, limit = 10 }: { data: Array<{ x: string; y: number }>; limit?: number }) {
+function countryCodeToFlag(code?: string) {
+  if (!code) return ''
+  const normalized = code.trim().toUpperCase()
+  if (!/^[A-Z]{2}$/.test(normalized)) return ''
+
+  return String.fromCodePoint(...[...normalized].map((char) => 127397 + char.charCodeAt(0)))
+}
+
+function MetricList({
+  data,
+  limit = 10,
+  formatLabel,
+}: {
+  data: Array<{ x: string; y: number }>
+  limit?: number
+  formatLabel?: (value: string) => string
+}) {
   const items = data.slice(0, limit);
   if (!items.length) {
     return <p className="text-sm text-muted-foreground">Sem dados</p>;
@@ -104,7 +120,9 @@ function MetricList({ data, limit = 10 }: { data: Array<{ x: string; y: number }
     <div className="space-y-2">
       {items.map((item, idx) => (
         <div key={idx} className="flex items-center justify-between text-sm">
-          <span className="truncate mr-2" title={item.x || "(direct)"}>{item.x || "(direct)"}</span>
+          <span className="truncate mr-2" title={item.x || "(direct)"}>
+            {formatLabel ? formatLabel(item.x || "(direct)") : item.x || "(direct)"}
+          </span>
           <span className="text-muted-foreground shrink-0">{fmtNumber(item.y)}</span>
         </div>
       ))}
@@ -373,12 +391,19 @@ export function AnalyticsContent({ initialConfig }: { initialConfig?: UmamiConfi
             <CardTitle className="text-base">Paises</CardTitle>
             <CardDescription>Localizacao geografica dos visitantes</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <MetricList data={countriesQuery.data || []} limit={5} />
-            </div>
-          </CardContent>
-        </Card>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <MetricList
+                  data={countriesQuery.data || []}
+                  limit={5}
+                  formatLabel={(value) => {
+                    const flag = countryCodeToFlag(value)
+                    return flag ? `${flag} ${value.toUpperCase()}` : value
+                  }}
+                />
+              </div>
+            </CardContent>
+          </Card>
       </div>
     </main>
   );
