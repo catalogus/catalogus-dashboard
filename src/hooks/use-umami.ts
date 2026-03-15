@@ -42,6 +42,7 @@ type UmamiMetrics = {
 }
 
 type UmamiActive = number
+type UmamiActiveResponse = { visitors?: number }
 
 async function fetchUmami<T>(endpoint: string, params: Record<string, string | number>): Promise<T> {
   const response = await fetch(buildProxyUrl(endpoint, params), {
@@ -139,7 +140,11 @@ export function useUmamiMetrics(
 export function useUmamiActive(enabled: boolean) {
   return useQuery({
     queryKey: ['umami-active'],
-    queryFn: () => fetchUmami<UmamiActive>('/active', {}),
+    queryFn: async () => {
+      const data = await fetchUmami<UmamiActive | UmamiActiveResponse>('/active', {})
+      if (typeof data === 'number') return data
+      return data?.visitors ?? 0
+    },
     staleTime: 10_000,
     refetchInterval: 30_000,
     enabled,
