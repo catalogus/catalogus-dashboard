@@ -25,6 +25,21 @@ type UmamiStats = {
   totaltime: { value: number; change: number }
 }
 
+type UmamiStatsRaw = {
+  pageviews: number
+  visitors: number
+  visits: number
+  bounces: number
+  totaltime: number
+  comparison?: {
+    pageviews?: number
+    visitors?: number
+    visits?: number
+    bounces?: number
+    totaltime?: number
+  }
+}
+
 type UmamiPageviews = {
   pageviews: Array<{ x: string; y: number }>
   sessions: Array<{ x: string; y: number }>
@@ -59,6 +74,44 @@ async function fetchUmami<T>(endpoint: string, params: Record<string, string | n
   return response.json()
 }
 
+function calculateChange(current: number, previous?: number): number {
+  if (previous === undefined || previous === null) return 0
+  if (previous === 0) return current > 0 ? 100 : 0
+  return Number((((current - previous) / previous) * 100).toFixed(1))
+}
+
+async function fetchUmamiStats(startDate: Date, endDate: Date): Promise<UmamiStats> {
+  const raw = await fetchUmami<UmamiStatsRaw>('/stats', {
+    startAt: dateToTimestamp(startDate),
+    endAt: dateToTimestamp(endDate),
+  })
+
+  const comparison = raw.comparison || {}
+
+  return {
+    pageviews: {
+      value: raw.pageviews ?? 0,
+      change: calculateChange(raw.pageviews ?? 0, comparison.pageviews),
+    },
+    visitors: {
+      value: raw.visitors ?? 0,
+      change: calculateChange(raw.visitors ?? 0, comparison.visitors),
+    },
+    visits: {
+      value: raw.visits ?? 0,
+      change: calculateChange(raw.visits ?? 0, comparison.visits),
+    },
+    bounces: {
+      value: raw.bounces ?? 0,
+      change: calculateChange(raw.bounces ?? 0, comparison.bounces),
+    },
+    totaltime: {
+      value: raw.totaltime ?? 0,
+      change: calculateChange(raw.totaltime ?? 0, comparison.totaltime),
+    },
+  }
+}
+
 type UmamiConfig = {
   configured: boolean
 }
@@ -90,10 +143,7 @@ export function useUmamiConfig(initialData?: UmamiConfig) {
 export function useUmamiStats(startDate: Date, endDate: Date, enabled: boolean) {
   return useQuery({
     queryKey: ['umami-stats', startDate.toISOString(), endDate.toISOString()],
-    queryFn: () => fetchUmami<UmamiStats>('/stats', {
-      startAt: dateToTimestamp(startDate),
-      endAt: dateToTimestamp(endDate),
-    }),
+    queryFn: () => fetchUmamiStats(startDate, endDate),
     staleTime: 60_000,
     enabled,
   })
