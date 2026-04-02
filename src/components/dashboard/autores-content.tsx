@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, MoreHorizontal, FileEdit, Trash2, User } from "lucide-react";
 import {
@@ -52,6 +52,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useAuthors, useAuthorStats, useCreateAuthor, useUpdateAuthor, useDeleteAuthor } from "@/hooks/supabase/authors";
 import { supabase } from "@/lib/supabase";
 import type { Author } from "@/lib/supabase";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 10;
 
@@ -63,18 +64,26 @@ const LEGACY_AUTHOR_TYPE_MAP: Record<string, string> = {
   other: "Outro",
 };
 
+const AUTHOR_TYPE_OPTIONS = ["Escritor", "Poeta", "Investigador", "Jornalista", "Outro"];
+const CUSTOM_AUTHOR_TYPE_VALUE = "__custom";
+
 const normalizeAuthorType = (value: string | null | undefined) => {
   if (!value) return "";
   return LEGACY_AUTHOR_TYPE_MAP[value] ?? value;
 };
 
+const isPresetAuthorType = (value: string) => AUTHOR_TYPE_OPTIONS.includes(value);
+
 export function AutoresContent() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [pendingDeleteAuthor, setPendingDeleteAuthor] = useState<Author | null>(null);
   const [editingAuthor, setEditingAuthor] = useState<Author | null>(null);
   const [viewingAuthor, setViewingAuthor] = useState<Author | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [selectedAuthorType, setSelectedAuthorType] = useState("");
+  const [customAuthorType, setCustomAuthorType] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [page, setPage] = useState(1);
@@ -88,6 +97,25 @@ export function AutoresContent() {
   const authors = authorsData?.data || [];
   const totalPages = authorsData?.totalPages || 1;
   const totalCount = authorsData?.totalCount || 0;
+
+  useEffect(() => {
+    const normalizedType = normalizeAuthorType(editingAuthor?.author_type);
+
+    if (!normalizedType) {
+      setSelectedAuthorType("");
+      setCustomAuthorType("");
+      return;
+    }
+
+    if (isPresetAuthorType(normalizedType)) {
+      setSelectedAuthorType(normalizedType);
+      setCustomAuthorType("");
+      return;
+    }
+
+    setSelectedAuthorType(CUSTOM_AUTHOR_TYPE_VALUE);
+    setCustomAuthorType(normalizedType);
+  }, [editingAuthor]);
 
   const resolvePhotoUrl = (photoUrl: string | null, photoPath: string | null) => {
     if (photoUrl) return photoUrl;
@@ -118,6 +146,12 @@ export function AutoresContent() {
     const formData = new FormData(e.currentTarget);
     const selectedPhoto = formData.get('photoFile');
     const photoFile = selectedPhoto instanceof File && selectedPhoto.size > 0 ? selectedPhoto : null;
+    const nextAuthorType = selectedAuthorType === CUSTOM_AUTHOR_TYPE_VALUE ? customAuthorType.trim() : selectedAuthorType;
+
+    if (selectedAuthorType === CUSTOM_AUTHOR_TYPE_VALUE && !nextAuthorType) {
+      toast.error("Digite um tipo de autor personalizado");
+      return;
+    }
 
     try {
       let nextPhotoPath = editingAuthor?.photo_path || null;
@@ -150,20 +184,30 @@ export function AutoresContent() {
           youtube: (formData.get('youtube') as string) || null,
         },
         featured: formData.get('featured') === 'on',
-      author_type: normalizeAuthorType(formData.get('authorType') as string) || null,
+      author_type: normalizeAuthorType(nextAuthorType) || null,
       photo_url: nextPhotoUrl,
       photo_path: nextPhotoPath,
     };
 
-      if (editingAuthor) {
-        await updateMutation.mutateAsync({ id: editingAuthor.id, ...authorData });
-      } else {
-        await createMutation.mutateAsync(authorData);
-      }
+      const mutationPromise = editingAuthor
+        ? updateMutation.mutateAsync({ id: editingAuthor.id, ...authorData })
+        : createMutation.mutateAsync(authorData);
+
+      toast.promise(mutationPromise, {
+        loading: editingAuthor ? "A guardar autor..." : "A criar autor...",
+        success: editingAuthor ? "Autor actualizado com sucesso" : "Autor criado com sucesso",
+        error: (error) => error instanceof Error ? error.message : "Falha ao guardar autor",
+      });
+
+      await mutationPromise;
 
       setIsSheetOpen(false);
       setEditingAuthor(null);
       setPhotoPreview(null);
+      setSelectedAuthorType("");
+      setCustomAuthorType("");
+    } catch (error) {
+      console.error("Failed saving author:", error);
     } finally {
       setIsSavingPhoto(false);
     }
@@ -175,10 +219,16 @@ export function AutoresContent() {
     setIsSheetOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este autor?')) {
-      await deleteMutation.mutateAsync(id);
-    }
+  const handleDelete = async (author: Author) => {
+    const deletePromise = deleteMutation.mutateAsync(author.id);
+    toast.promise(deletePromise, {
+      loading: 'A excluir autor...',
+      success: 'Autor excluido com sucesso',
+      error: (error) => error instanceof Error ? error.message : 'Falha ao excluir autor',
+    });
+
+    await deletePromise;
+    setPendingDeleteAuthor(null);
   };
 
   const handleRowClick = (author: Author) => {
@@ -359,7 +409,7 @@ export function AutoresContent() {
                           <FileEdit className="size-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(author.id)}>
+                        <DropdownMenuItem className="text-destructive" onClick={() => setPendingDeleteAuthor(author)}>
                           <Trash2 className="size-4 mr-2" />
                           Excluir
                         </DropdownMenuItem>
@@ -505,7 +555,7 @@ export function AutoresContent() {
                   className="flex-1"
                   onClick={() => {
                     setIsDetailOpen(false);
-                    handleDelete(viewingAuthor.id);
+                    setPendingDeleteAuthor(viewingAuthor);
                   }}
                 >
                   Excluir
@@ -516,12 +566,55 @@ export function AutoresContent() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={!!pendingDeleteAuthor}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteAuthor(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir autor</DialogTitle>
+            <DialogDescription>
+              {pendingDeleteAuthor
+                ? `Tem certeza que deseja excluir o autor "${pendingDeleteAuthor.name}"? Esta ação não pode ser desfeita.`
+                : 'Tem certeza que deseja excluir este autor?'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setPendingDeleteAuthor(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1"
+              disabled={deleteMutation.isPending || !pendingDeleteAuthor}
+              onClick={() => {
+                if (!pendingDeleteAuthor) return;
+                void handleDelete(pendingDeleteAuthor);
+              }}
+            >
+              Excluir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit/Create Sheet */}
       <Sheet open={isSheetOpen} onOpenChange={(open) => {
         setIsSheetOpen(open);
         if (!open) {
           setEditingAuthor(null);
           setPhotoPreview(null);
+          setSelectedAuthorType("");
+          setCustomAuthorType("");
         }
       }}>
         <SheetContent className="w-full sm:max-w-lg p-0 flex h-full sm:h-screen flex-col overflow-hidden">
@@ -575,18 +668,24 @@ export function AutoresContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-3">
                   <Label htmlFor="authorType">Tipo de Autor</Label>
-                  <Select name="authorType" defaultValue={normalizeAuthorType(editingAuthor?.author_type) || ''}>
-                    <SelectTrigger className="w-full">
+                  <Select value={selectedAuthorType} onValueChange={setSelectedAuthorType}>
+                    <SelectTrigger id="authorType" className="w-full">
                       <SelectValue placeholder="Seleccionar tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Escritor">Escritor</SelectItem>
-                      <SelectItem value="Poeta">Poeta</SelectItem>
-                      <SelectItem value="Investigador">Investigador</SelectItem>
-                      <SelectItem value="Jornalista">Jornalista</SelectItem>
-                      <SelectItem value="Outro">Outro</SelectItem>
+                      {AUTHOR_TYPE_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                      <SelectItem value={CUSTOM_AUTHOR_TYPE_VALUE}>Outro (personalizado)</SelectItem>
                     </SelectContent>
                   </Select>
+                  {selectedAuthorType === CUSTOM_AUTHOR_TYPE_VALUE && (
+                    <Input
+                      value={customAuthorType}
+                      onChange={(event) => setCustomAuthorType(event.target.value)}
+                      placeholder="Digite o tipo de autor"
+                    />
+                  )}
                 </div>
                 <div className="space-y-3">
                   <Label htmlFor="phone">Telefone</Label>
