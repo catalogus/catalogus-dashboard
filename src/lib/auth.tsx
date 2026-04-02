@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useMemo, useState, ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { Session, User } from '@supabase/supabase-js'
+import type { EmailOtpType, Session, User } from '@supabase/supabase-js'
 import { queryKeys } from '@/hooks/supabase/query-keys'
 import { AuthContext, type Profile } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabase'
 
 const cmsUrl = import.meta.env.VITE_CMS_URL?.replace(/\/$/, '')
+
+type AuthRedirectContext = {
+  type: string | null
+  code: string | null
+  tokenHash: string | null
+  accessToken: string | null
+  refreshToken: string | null
+}
 
 async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | null = null
@@ -20,6 +28,67 @@ async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, messag
   } finally {
     if (timer) clearTimeout(timer)
   }
+}
+
+function getAuthRedirectContext(): AuthRedirectContext {
+  if (typeof window === 'undefined') {
+    return {
+      type: null,
+      code: null,
+      tokenHash: null,
+      accessToken: null,
+      refreshToken: null,
+    }
+  }
+
+  const search = new URLSearchParams(window.location.search)
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+
+  return {
+    type: search.get('type') ?? hash.get('type'),
+    code: search.get('code'),
+    tokenHash: search.get('token_hash'),
+    accessToken: hash.get('access_token'),
+    refreshToken: hash.get('refresh_token'),
+  }
+}
+
+function clearAuthRedirectParams() {
+  if (typeof window === 'undefined') return
+  window.history.replaceState({}, document.title, window.location.pathname)
+}
+
+async function consumeAuthRedirectIfPresent() {
+  const { type, code, tokenHash, accessToken, refreshToken } = getAuthRedirectContext()
+
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (error) throw error
+    clearAuthRedirectParams()
+    return type
+  }
+
+  if (tokenHash && type) {
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: type as EmailOtpType,
+    })
+    if (error) throw error
+    clearAuthRedirectParams()
+    return type
+  }
+
+  if (accessToken && refreshToken) {
+    const { error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    })
+    if (error) throw error
+    clearAuthRedirectParams()
+    return type
+  }
+
+  return type
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -67,11 +136,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true
 
     if (typeof window !== 'undefined') {
-      setRecoveryMode(window.location.hash.includes('type=recovery'))
+      const initialAuthRedirect = getAuthRedirectContext()
+      setRecoveryMode(initialAuthRedirect.type === 'recovery')
     }
 
     const init = async () => {
       try {
+        const authRedirectType = await consumeAuthRedirectIfPresent()
+
+        if (!mounted) return
+
+        if (authRedirectType === 'recovery') {
+          setRecoveryMode(true)
+        }
+
         const {
           data: { session: initialSession },
         } = await withTimeout(
