@@ -524,7 +524,7 @@ export function AutoresContent() {
           setPhotoPreview(null);
         }
       }}>
-        <SheetContent className="w-full sm:max-w-lg p-0 flex flex-col">
+        <SheetContent className="w-full sm:max-w-lg p-0 flex h-full sm:h-screen flex-col overflow-hidden">
           <SheetHeader className="space-y-2.5 px-6 py-4 border-b shrink-0">
             <SheetTitle>{editingAuthor ? 'Editar Autor' : 'Adicionar Autor'}</SheetTitle>
             <SheetDescription>
@@ -532,8 +532,8 @@ export function AutoresContent() {
             </SheetDescription>
           </SheetHeader>
 
-          <form onSubmit={handleSubmit} className="flex flex-col flex-1">
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 space-y-6">
               <div className="space-y-3">
                 <Label htmlFor="name">
                   Nome <span className="text-destructive">*</span>
