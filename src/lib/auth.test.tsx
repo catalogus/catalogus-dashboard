@@ -12,6 +12,9 @@ const authMockState = vi.hoisted(() => {
   const signInWithPassword = vi.fn()
   const resetPasswordForEmail = vi.fn()
   const updateUser = vi.fn()
+  const exchangeCodeForSession = vi.fn()
+  const verifyOtp = vi.fn()
+  const setSession = vi.fn()
   const maybeSingle = vi.fn()
   const from = vi.fn(() => ({
     select: vi.fn(() => ({
@@ -25,6 +28,9 @@ const authMockState = vi.hoisted(() => {
     signInWithPassword,
     resetPasswordForEmail,
     updateUser,
+    exchangeCodeForSession,
+    verifyOtp,
+    setSession,
     maybeSingle,
     from,
   }
@@ -39,6 +45,9 @@ vi.mock('@/lib/supabase', () => ({
       signInWithPassword: authMockState.signInWithPassword,
       resetPasswordForEmail: authMockState.resetPasswordForEmail,
       updateUser: authMockState.updateUser,
+      exchangeCodeForSession: authMockState.exchangeCodeForSession,
+      verifyOtp: authMockState.verifyOtp,
+      setSession: authMockState.setSession,
     },
     from: authMockState.from,
   },
@@ -68,10 +77,14 @@ describe('AuthProvider idle-session resilience', () => {
 
     authMockState.getSession.mockResolvedValue({ data: { session: baseSession } })
     authMockState.maybeSingle.mockResolvedValue({ data: baseProfile, error: null })
+    authMockState.exchangeCodeForSession.mockResolvedValue({ data: { session: baseSession }, error: null })
+    authMockState.verifyOtp.mockResolvedValue({ data: { session: baseSession }, error: null })
+    authMockState.setSession.mockResolvedValue({ data: { session: baseSession }, error: null })
     authMockState.onAuthStateChange.mockImplementation((cb: (event: string, session: Session | null) => void) => {
       authStateHandler = cb
       return { data: { subscription: { unsubscribe: vi.fn() } } }
     })
+    window.history.replaceState({}, document.title, '/')
   })
 
   it('boots with session and profile data', async () => {
@@ -113,6 +126,51 @@ describe('AuthProvider idle-session resilience', () => {
     document.dispatchEvent(new Event('visibilitychange'))
 
     await waitFor(() => expect(authMockState.getSession).toHaveBeenCalledTimes(2))
+  })
+
+  it('exchanges auth code callbacks before reading the session', async () => {
+    const queryClient = createTestQueryClient()
+    const Wrapper = createQueryClientWrapper(queryClient)
+
+    window.history.replaceState({}, document.title, '/auth/reset-password?code=test-code&type=invite')
+
+    render(
+      <Wrapper>
+        <AuthProvider>
+          <Probe />
+        </AuthProvider>
+      </Wrapper>,
+    )
+
+    await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('ready'))
+
+    expect(authMockState.exchangeCodeForSession).toHaveBeenCalledWith('test-code')
+    expect(window.location.pathname).toBe('/auth/reset-password')
+    expect(window.location.search).toBe('')
+  })
+
+  it('verifies token hash callbacks before reading the session', async () => {
+    const queryClient = createTestQueryClient()
+    const Wrapper = createQueryClientWrapper(queryClient)
+
+    window.history.replaceState({}, document.title, '/auth/reset-password?token_hash=test-hash&type=invite')
+
+    render(
+      <Wrapper>
+        <AuthProvider>
+          <Probe />
+        </AuthProvider>
+      </Wrapper>,
+    )
+
+    await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('ready'))
+
+    expect(authMockState.verifyOtp).toHaveBeenCalledWith({
+      token_hash: 'test-hash',
+      type: 'invite',
+    })
+    expect(window.location.pathname).toBe('/auth/reset-password')
+    expect(window.location.search).toBe('')
   })
 
   it('clears cached auth-profile data on SIGNED_OUT', async () => {
