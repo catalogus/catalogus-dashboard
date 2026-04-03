@@ -1,281 +1,163 @@
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Plus, MoreHorizontal, FileEdit, Trash2, User } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { useAuthors, useAuthorStats, useCreateAuthor, useUpdateAuthor, useDeleteAuthor } from "@/hooks/supabase/authors";
-import { supabase } from "@/lib/supabase";
-import type { Author } from "@/lib/supabase";
-import { toast } from "sonner";
+import { useCallback, useState } from "react"
+import { Plus, User } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { useAuthorStats, useAuthors, useCreateAuthor, useDeleteAuthor, useUpdateAuthor } from "@/hooks/supabase/authors"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
+import { supabase } from "@/lib/supabase"
+import type { Author } from "@/lib/supabase"
+import { toast } from "sonner"
+import { AuthorDeleteDialog } from "./authors/author-delete-dialog"
+import { AuthorDetailDialog } from "./authors/author-detail-dialog"
+import { AuthorFormSheet, type AuthorFormValues } from "./authors/author-form-sheet"
+import { AuthorListTable } from "./authors/author-list-table"
+import { AuthorStatsCards } from "./authors/author-stats-cards"
+import { AuthorsPagination } from "./authors/authors-pagination"
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 10
 
-const LEGACY_AUTHOR_TYPE_MAP: Record<string, string> = {
-  writer: "Escritor",
-  poet: "Poeta",
-  researcher: "Investigador",
-  journalist: "Jornalista",
-  other: "Outro",
-};
+function getVisiblePages(page: number, totalPages: number): Array<number | "ellipsis"> {
+  const visible: Array<number | "ellipsis"> = []
+  const maxVisible = 5
+  if (totalPages <= maxVisible) {
+    for (let current = 1; current <= totalPages; current += 1) visible.push(current)
+    return visible
+  }
+  if (page <= 3) {
+    for (let current = 1; current <= 4; current += 1) visible.push(current)
+    visible.push("ellipsis", totalPages)
+    return visible
+  }
+  if (page >= totalPages - 2) {
+    visible.push(1, "ellipsis")
+    for (let current = totalPages - 3; current <= totalPages; current += 1) visible.push(current)
+    return visible
+  }
 
-const AUTHOR_TYPE_OPTIONS = ["Escritor", "Poeta", "Investigador", "Jornalista", "Outro"];
-const CUSTOM_AUTHOR_TYPE_VALUE = "__custom";
-
-const normalizeAuthorType = (value: string | null | undefined) => {
-  if (!value) return "";
-  return LEGACY_AUTHOR_TYPE_MAP[value] ?? value;
-};
-
-const isPresetAuthorType = (value: string) => AUTHOR_TYPE_OPTIONS.includes(value);
+  return [1, "ellipsis", page - 1, page, page + 1, "ellipsis", totalPages]
+}
 
 export function AutoresContent() {
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [pendingDeleteAuthor, setPendingDeleteAuthor] = useState<Author | null>(null);
-  const [editingAuthor, setEditingAuthor] = useState<Author | null>(null);
-  const [viewingAuthor, setViewingAuthor] = useState<Author | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
-  const [selectedAuthorType, setSelectedAuthorType] = useState("");
-  const [customAuthorType, setCustomAuthorType] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearch = useDebouncedValue(searchQuery, 300);
-  const [page, setPage] = useState(1);
-  
-  const { data: authorsData, isLoading } = useAuthors(page, PAGE_SIZE, debouncedSearch);
-  const { data: stats } = useAuthorStats();
-  const createMutation = useCreateAuthor();
-  const updateMutation = useUpdateAuthor();
-  const deleteMutation = useDeleteAuthor();
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [editingAuthor, setEditingAuthor] = useState<Author | null>(null)
+  const [viewingAuthor, setViewingAuthor] = useState<Author | null>(null)
+  const [pendingDeleteAuthor, setPendingDeleteAuthor] = useState<Author | null>(null)
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [page, setPage] = useState(1)
 
-  const authors = authorsData?.data || [];
-  const totalPages = authorsData?.totalPages || 1;
-  const totalCount = authorsData?.totalCount || 0;
+  const debouncedSearch = useDebouncedValue(searchQuery, 300)
+  const { data: authorsData, isLoading } = useAuthors(page, PAGE_SIZE, debouncedSearch)
+  const { data: stats } = useAuthorStats()
+  const createMutation = useCreateAuthor()
+  const updateMutation = useUpdateAuthor()
+  const deleteMutation = useDeleteAuthor()
 
-  useEffect(() => {
-    const normalizedType = normalizeAuthorType(editingAuthor?.author_type);
+  const authors = authorsData?.data || []
+  const totalPages = authorsData?.totalPages || 1
+  const totalCount = authorsData?.totalCount || 0
 
-    if (!normalizedType) {
-      setSelectedAuthorType("");
-      setCustomAuthorType("");
-      return;
-    }
-
-    if (isPresetAuthorType(normalizedType)) {
-      setSelectedAuthorType(normalizedType);
-      setCustomAuthorType("");
-      return;
-    }
-
-    setSelectedAuthorType(CUSTOM_AUTHOR_TYPE_VALUE);
-    setCustomAuthorType(normalizedType);
-  }, [editingAuthor]);
-
-  const resolvePhotoUrl = (photoUrl: string | null, photoPath: string | null) => {
-    if (photoUrl) return photoUrl;
-    if (!photoPath) return null;
-    return supabase.storage.from("author-photos").getPublicUrl(photoPath).data.publicUrl;
-  };
+  const resolvePhotoUrl = useCallback((photoUrl: string | null, photoPath: string | null) => {
+    if (photoUrl) return photoUrl
+    return photoPath ? supabase.storage.from("author-photos").getPublicUrl(photoPath).data.publicUrl : null
+  }, [])
 
   const uploadAuthorPhoto = async (targetFile: File, ownerId: string) => {
-    const safeName = targetFile.name.replace(/\s+/g, "-");
-    const path = `${ownerId}/${Date.now()}-${safeName}`;
+    const safeName = targetFile.name.replace(/\s+/g, "-")
+    const path = `${ownerId}/${Date.now()}-${safeName}`
     const { error: uploadError } = await supabase.storage
       .from("author-photos")
-      .upload(path, targetFile, { upsert: true });
+      .upload(path, targetFile, { upsert: true })
 
-    if (uploadError) throw uploadError;
+    if (uploadError) throw uploadError
 
-    const { data } = supabase.storage.from("author-photos").getPublicUrl(path);
-    return { path, publicUrl: data.publicUrl };
-  };
+    const { data } = supabase.storage.from("author-photos").getPublicUrl(path)
+    return { path, publicUrl: data.publicUrl }
+  }
 
-  const handleSearch = (value: string) => {
-    setSearchQuery(value);
-    setPage(1);
-  };
+  const resetSheetState = () => {
+    setIsSheetOpen(false)
+    setEditingAuthor(null)
+  }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const selectedPhoto = formData.get('photoFile');
-    const photoFile = selectedPhoto instanceof File && selectedPhoto.size > 0 ? selectedPhoto : null;
-    const nextAuthorType = selectedAuthorType === CUSTOM_AUTHOR_TYPE_VALUE ? customAuthorType.trim() : selectedAuthorType;
+  const handleCreate = () => {
+    setEditingAuthor(null)
+    setIsSheetOpen(true)
+  }
 
-    if (selectedAuthorType === CUSTOM_AUTHOR_TYPE_VALUE && !nextAuthorType) {
-      toast.error("Digite um tipo de autor personalizado");
-      return;
-    }
+  const handleView = (author: Author) => {
+    setViewingAuthor(author)
+    setIsDetailOpen(true)
+  }
 
+  const handleEdit = (author: Author) => {
+    setViewingAuthor(null)
+    setIsDetailOpen(false)
+    setEditingAuthor(author)
+    setIsSheetOpen(true)
+  }
+
+  const handleRequestDelete = (author: Author) => {
+    setViewingAuthor(null)
+    setIsDetailOpen(false)
+    setPendingDeleteAuthor(author)
+  }
+
+  const handleSubmit = async (values: AuthorFormValues, photoFile: File | null) => {
     try {
-      let nextPhotoPath = editingAuthor?.photo_path || null;
-      let nextPhotoUrl = editingAuthor?.photo_url || null;
+      setIsSavingPhoto(!!photoFile)
+
+      let nextPhotoPath = editingAuthor?.photo_path || null
+      let nextPhotoUrl = editingAuthor?.photo_url || null
 
       if (photoFile) {
-        setIsSavingPhoto(true);
         if (editingAuthor?.photo_path) {
-          await supabase.storage.from("author-photos").remove([editingAuthor.photo_path]);
+          await supabase.storage.from("author-photos").remove([editingAuthor.photo_path])
         }
-        const uploaded = await uploadAuthorPhoto(photoFile, editingAuthor?.id || `author-${Date.now()}`);
-        nextPhotoPath = uploaded.path;
-        nextPhotoUrl = uploaded.publicUrl;
+
+        const uploaded = await uploadAuthorPhoto(photoFile, editingAuthor?.id || `author-${Date.now()}`)
+        nextPhotoPath = uploaded.path
+        nextPhotoUrl = uploaded.publicUrl
       }
 
-      const authorData = {
-        name: formData.get('name') as string,
-      phone: formData.get('phone') as string || null,
-        bio: formData.get('bio') as string || null,
-        birth_date: formData.get('birthDate') as string || null,
-        residence_city: formData.get('city') as string || null,
-        province: formData.get('province') as string || null,
-        featured_video: formData.get('videoUrl') as string || null,
-        social_links: {
-          website: (formData.get('website') as string) || null,
-          linkedin: (formData.get('linkedin') as string) || null,
-          facebook: (formData.get('facebook') as string) || null,
-          instagram: (formData.get('instagram') as string) || null,
-          twitter: (formData.get('twitter') as string) || null,
-          youtube: (formData.get('youtube') as string) || null,
-        },
-        featured: formData.get('featured') === 'on',
-      author_type: normalizeAuthorType(nextAuthorType) || null,
-      photo_url: nextPhotoUrl,
-      photo_path: nextPhotoPath,
-    };
-
       const mutationPromise = editingAuthor
-        ? updateMutation.mutateAsync({ id: editingAuthor.id, ...authorData })
-        : createMutation.mutateAsync(authorData);
+        ? updateMutation.mutateAsync({ id: editingAuthor.id, ...values, photo_url: nextPhotoUrl, photo_path: nextPhotoPath })
+        : createMutation.mutateAsync({ ...values, photo_url: nextPhotoUrl, photo_path: nextPhotoPath })
 
       toast.promise(mutationPromise, {
         loading: editingAuthor ? "A guardar autor..." : "A criar autor...",
         success: editingAuthor ? "Autor actualizado com sucesso" : "Autor criado com sucesso",
         error: (error) => error instanceof Error ? error.message : "Falha ao guardar autor",
-      });
+      })
 
-      await mutationPromise;
-
-      setIsSheetOpen(false);
-      setEditingAuthor(null);
-      setPhotoPreview(null);
-      setSelectedAuthorType("");
-      setCustomAuthorType("");
+      await mutationPromise
+      resetSheetState()
     } catch (error) {
-      console.error("Failed saving author:", error);
+      console.error("Failed saving author:", error)
     } finally {
-      setIsSavingPhoto(false);
+      setIsSavingPhoto(false)
     }
-  };
-
-  const handleEdit = (author: Author) => {
-    setEditingAuthor(author);
-    setPhotoPreview(resolvePhotoUrl(author.photo_url, author.photo_path));
-    setIsSheetOpen(true);
-  };
+  }
 
   const handleDelete = async (author: Author) => {
-    const deletePromise = deleteMutation.mutateAsync(author.id);
+    const deletePromise = deleteMutation.mutateAsync(author.id)
     toast.promise(deletePromise, {
-      loading: 'A excluir autor...',
-      success: 'Autor excluido com sucesso',
-      error: (error) => error instanceof Error ? error.message : 'Falha ao excluir autor',
-    });
+      loading: "A excluir autor...",
+      success: "Autor excluido com sucesso",
+      error: (error) => error instanceof Error ? error.message : "Falha ao excluir autor",
+    })
 
-    await deletePromise;
-    setPendingDeleteAuthor(null);
-  };
-
-  const handleRowClick = (author: Author) => {
-    setViewingAuthor(author);
-    setIsDetailOpen(true);
-  };
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('pt-MZ', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
-  };
-
-  const getVisiblePages = (): (number | 'ellipsis')[] => {
-    const visible: (number | 'ellipsis')[] = [];
-    const maxVisible = 5;
-    
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) visible.push(i);
-    } else {
-      if (page <= 3) {
-        for (let i = 1; i <= 4; i++) visible.push(i);
-        visible.push('ellipsis');
-        visible.push(totalPages);
-      } else if (page >= totalPages - 2) {
-        visible.push(1);
-        visible.push('ellipsis');
-        for (let i = totalPages - 3; i <= totalPages; i++) visible.push(i);
-      } else {
-        visible.push(1);
-        visible.push('ellipsis');
-        for (let i = page - 1; i <= page + 1; i++) visible.push(i);
-        visible.push('ellipsis');
-        visible.push(totalPages);
-      }
-    }
-    return visible;
-  };
+    await deletePromise
+    setPendingDeleteAuthor(null)
+  }
 
   if (isLoading && !authorsData) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-muted-foreground">Carregando autores...</p>
       </div>
-    );
+    )
   }
 
   return (
@@ -283,511 +165,77 @@ export function AutoresContent() {
       <div className="mx-auto w-full space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Comunidade
-            </p>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
-              Autores ({stats?.total || 0})
-            </h1>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Comunidade</p>
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Autores ({stats?.total || 0})</h1>
           </div>
-          <Button 
-            size="sm" 
-            className="h-9 gap-1.5 bg-amber-600 hover:bg-amber-700"
-            onClick={() => {
-              setEditingAuthor(null);
-              setPhotoPreview(null);
-              setIsSheetOpen(true);
-            }}
-          >
+          <Button size="sm" className="h-9 gap-1.5 bg-amber-600 hover:bg-amber-700" onClick={handleCreate}>
             <Plus className="size-4" />
             Adicionar autor
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="border rounded-lg p-4 bg-card">
-            <p className="text-xs font-medium text-muted-foreground uppercase">Total Autores</p>
-            <p className="text-3xl font-bold mt-1">{stats?.total || 0}</p>
-            <p className="text-xs text-muted-foreground mt-1">Desde sempre</p>
-          </div>
-          <div className="border rounded-lg p-4 bg-card">
-            <p className="text-xs font-medium text-muted-foreground uppercase">Destaque</p>
-            <p className="text-3xl font-bold mt-1">{stats?.featured || 0}</p>
-            <p className="text-xs text-muted-foreground mt-1">Perfis destacados</p>
-          </div>
-          <div className="border rounded-lg p-4 bg-card">
-            <p className="text-xs font-medium text-muted-foreground uppercase">Perfis Vinculados</p>
-            <p className="text-3xl font-bold mt-1">{stats?.linkedProfiles || 0}</p>
-            <p className="text-xs text-muted-foreground mt-1">Conectados a utilizadores</p>
-          </div>
-          <div className="border rounded-lg p-4 bg-card">
-            <p className="text-xs font-medium text-muted-foreground uppercase">Reivindicações Pendentes</p>
-            <p className="text-3xl font-bold mt-1 text-amber-600">{stats?.pendingClaims || 0}</p>
-            <p className="text-xs text-muted-foreground mt-1">Aguardando revisão</p>
-          </div>
+        <AuthorStatsCards
+          total={stats?.total || 0}
+          featured={stats?.featured || 0}
+          linkedProfiles={stats?.linkedProfiles || 0}
+          pendingClaims={stats?.pendingClaims || 0}
+        />
+
+        <div className="relative flex-1">
+          <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar autores..."
+            value={searchQuery}
+            onChange={(event) => {
+              setSearchQuery(event.target.value)
+              setPage(1)
+            }}
+            className="pl-10"
+          />
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-3">
-          <div className="relative flex-1">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar autores..."
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
+        <div className="text-sm text-muted-foreground">{totalCount} autores encontrados</div>
 
-        <div className="text-sm text-muted-foreground">
-          {totalCount} autores encontrados
-        </div>
+        <AuthorListTable
+          authors={authors}
+          isLoading={isLoading}
+          onView={handleView}
+          onEdit={handleEdit}
+          onDelete={handleRequestDelete}
+        />
 
-        <div className="rounded-lg border bg-card overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Autor</TableHead>
-                <TableHead className="w-[150px]">Telefone</TableHead>
-                <TableHead className="w-[150px]">Tipo de Autor</TableHead>
-                <TableHead className="w-[150px]">Perfil Vinculado</TableHead>
-                <TableHead className="w-[100px]">Destaque</TableHead>
-                <TableHead className="w-[80px]">Acções</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    Carregando...
-                  </TableCell>
-                </TableRow>
-              ) : authors?.map((author) => (
-                <TableRow 
-                  key={author.id}
-                  className="cursor-pointer"
-                  onClick={() => handleRowClick(author)}
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="size-10">
-                        <AvatarImage src={author.photo_url || undefined} alt={author.name} />
-                        <AvatarFallback>{author.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium">{author.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {author.phone || "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                     {normalizeAuthorType(author.author_type) || "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {author.profile_id ? (
-                      <span className="text-emerald-600">Sim</span>
-                    ) : (
-                      <span className="text-muted-foreground">Não</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {author.featured ? (
-                      <span className="text-emerald-600 font-medium">Sim</span>
-                    ) : (
-                      <span className="text-muted-foreground">Não</span>
-                    )}
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="size-8">
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(author)}>
-                          <FileEdit className="size-4 mr-2" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => setPendingDeleteAuthor(author)}>
-                          <Trash2 className="size-4 mr-2" />
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!isLoading && authors?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    Nenhum autor encontrado.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {totalPages > 1 && (
-          <Pagination className="mx-0 w-auto justify-start">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious 
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-              
-              {getVisiblePages().map((p, i) => (
-                <PaginationItem key={i}>
-                  {p === 'ellipsis' ? (
-                    <PaginationEllipsis />
-                  ) : (
-                    <PaginationLink
-                      onClick={() => setPage(p)}
-                      isActive={page === p}
-                      className="cursor-pointer"
-                    >
-                      {p}
-                    </PaginationLink>
-                  )}
-                </PaginationItem>
-              ))}
-              
-              <PaginationItem>
-                <PaginationNext 
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  className={page === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
+        <AuthorsPagination
+          page={page}
+          totalPages={totalPages}
+          visiblePages={getVisiblePages(page, totalPages)}
+          onPageChange={setPage}
+        />
       </div>
 
-      {/* Detail Dialog */}
-      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{viewingAuthor?.name}</DialogTitle>
-            <DialogDescription>
-              Detalhes do autor
-            </DialogDescription>
-          </DialogHeader>
-          
-          {viewingAuthor && (
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <Avatar className="size-24">
-                  <AvatarImage src={viewingAuthor.photo_url || undefined} alt={viewingAuthor.name} />
-                  <AvatarFallback className="text-2xl">{viewingAuthor.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 space-y-2">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Biografia</p>
-                    <p className="text-sm mt-1">{viewingAuthor.bio || '-'}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-4 gap-4">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Tipo</p>
-                   <p className="text-sm mt-1">{normalizeAuthorType(viewingAuthor.author_type) || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Telefone</p>
-                  <p className="text-sm mt-1">{viewingAuthor.phone || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Cidade</p>
-                  <p className="text-sm mt-1">{viewingAuthor.residence_city || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Província</p>
-                  <p className="text-sm mt-1">{viewingAuthor.province || '-'}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Data de Nascimento</p>
-                  <p className="text-sm mt-1">{viewingAuthor.birth_date ? formatDate(viewingAuthor.birth_date) : '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Perfil Vinculado</p>
-                  <p className="text-sm mt-1">{viewingAuthor.profile_id ? 'Sim' : 'Não'}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Destaque</p>
-                  <p className="text-sm mt-1">{viewingAuthor.featured ? 'Sim' : 'Não'}</p>
-                </div>
-              </div>
-              
-              {viewingAuthor.featured_video && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Vídeo em Destaque</p>
-                  <a 
-                    href={viewingAuthor.featured_video}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline mt-1 block"
-                  >
-                    {viewingAuthor.featured_video}
-                  </a>
-                </div>
-              )}
-              
-              <div className="flex gap-2 pt-4">
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => {
-                    setIsDetailOpen(false);
-                    handleEdit(viewingAuthor);
-                  }}
-                >
-                  Editar
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  className="flex-1"
-                  onClick={() => {
-                    setIsDetailOpen(false);
-                    setPendingDeleteAuthor(viewingAuthor);
-                  }}
-                >
-                  Excluir
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <AuthorDetailDialog
+        author={viewingAuthor}
+        open={isDetailOpen}
+        onOpenChange={setIsDetailOpen}
+        onEdit={handleEdit}
+        onDelete={handleRequestDelete}
+      />
 
-      <Dialog
+      <AuthorDeleteDialog
+        author={pendingDeleteAuthor}
         open={!!pendingDeleteAuthor}
-        onOpenChange={(open) => {
-          if (!open) setPendingDeleteAuthor(null);
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Excluir autor</DialogTitle>
-            <DialogDescription>
-              {pendingDeleteAuthor
-                ? `Tem certeza que deseja excluir o autor "${pendingDeleteAuthor.name}"? Esta ação não pode ser desfeita.`
-                : 'Tem certeza que deseja excluir este autor?'}
-            </DialogDescription>
-          </DialogHeader>
+        deleting={deleteMutation.isPending}
+        onOpenChange={(open) => !open && setPendingDeleteAuthor(null)}
+        onConfirm={(author) => void handleDelete(author)}
+      />
 
-          <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              onClick={() => setPendingDeleteAuthor(null)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              className="flex-1"
-              disabled={deleteMutation.isPending || !pendingDeleteAuthor}
-              onClick={() => {
-                if (!pendingDeleteAuthor) return;
-                void handleDelete(pendingDeleteAuthor);
-              }}
-            >
-              Excluir
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit/Create Sheet */}
-      <Sheet open={isSheetOpen} onOpenChange={(open) => {
-        setIsSheetOpen(open);
-        if (!open) {
-          setEditingAuthor(null);
-          setPhotoPreview(null);
-          setSelectedAuthorType("");
-          setCustomAuthorType("");
-        }
-      }}>
-        <SheetContent className="w-full sm:max-w-lg p-0 flex h-full sm:h-screen flex-col overflow-hidden">
-          <SheetHeader className="space-y-2.5 px-6 py-4 border-b shrink-0">
-            <SheetTitle>{editingAuthor ? 'Editar Autor' : 'Adicionar Autor'}</SheetTitle>
-            <SheetDescription>
-              Crie um perfil de autor com informações detalhadas.
-            </SheetDescription>
-          </SheetHeader>
-
-          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 space-y-6">
-              <div className="space-y-3">
-                <Label htmlFor="name">
-                  Nome <span className="text-destructive">*</span>
-                </Label>
-                <Input 
-                  id="name" 
-                  name="name"
-                  placeholder="Nome do autor" 
-                  required 
-                  defaultValue={editingAuthor?.name || ''}
-                />
-              </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="photoFile">Foto do Autor</Label>
-                {photoPreview && (
-                  <img
-                    src={photoPreview}
-                    alt="Pré-visualização da foto do autor"
-                    className="h-24 w-24 rounded-md object-cover border"
-                  />
-                )}
-                <Input
-                  id="photoFile"
-                  name="photoFile"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={(event) => {
-                    const nextFile = event.target.files?.[0];
-                    if (!nextFile) {
-                      setPhotoPreview(editingAuthor ? resolvePhotoUrl(editingAuthor.photo_url, editingAuthor.photo_path) : null);
-                      return;
-                    }
-                    setPhotoPreview(URL.createObjectURL(nextFile));
-                  }}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <Label htmlFor="authorType">Tipo de Autor</Label>
-                  <Select value={selectedAuthorType} onValueChange={setSelectedAuthorType}>
-                    <SelectTrigger id="authorType" className="w-full">
-                      <SelectValue placeholder="Seleccionar tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {AUTHOR_TYPE_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>{option}</SelectItem>
-                      ))}
-                      <SelectItem value={CUSTOM_AUTHOR_TYPE_VALUE}>Outro (personalizado)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {selectedAuthorType === CUSTOM_AUTHOR_TYPE_VALUE && (
-                    <Input
-                      value={customAuthorType}
-                      onChange={(event) => setCustomAuthorType(event.target.value)}
-                      placeholder="Digite o tipo de autor"
-                    />
-                  )}
-                </div>
-                <div className="space-y-3">
-                  <Label htmlFor="phone">Telefone</Label>
-                  <Input 
-                    id="phone" 
-                    name="phone"
-                    placeholder="+258 84 123 4567" 
-                    defaultValue={editingAuthor?.phone || ''}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="bio">Biografia</Label>
-                <Input
-                  id="bio"
-                  name="bio"
-                  placeholder="Biografia do autor"
-                  defaultValue={editingAuthor?.bio || ''}
-                />
-              </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="birthDate">Data de Nascimento</Label>
-                <Input 
-                  id="birthDate" 
-                  name="birthDate"
-                  type="date" 
-                  defaultValue={editingAuthor?.birth_date || ''}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <Label htmlFor="city">Cidade de Residência</Label>
-                  <Input 
-                    id="city" 
-                    name="city"
-                    placeholder="Nome da cidade" 
-                    defaultValue={editingAuthor?.residence_city || ''}
-                  />
-                </div>
-                <div className="space-y-3">
-                  <Label htmlFor="province">Província</Label>
-                  <Input 
-                    id="province" 
-                    name="province"
-                    placeholder="Nome da província" 
-                    defaultValue={editingAuthor?.province || ''}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="videoUrl">URL do Vídeo em Destaque</Label>
-                <Input 
-                  id="videoUrl" 
-                  name="videoUrl"
-                  placeholder="https://youtube.com/watch?v=..." 
-                  defaultValue={editingAuthor?.featured_video || ''}
-                />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <input 
-                  type="checkbox" 
-                  id="featured" 
-                  name="featured"
-                  defaultChecked={editingAuthor?.featured || false}
-                  className="h-4 w-4"
-                />
-                <Label htmlFor="featured" className="text-sm font-normal cursor-pointer">
-                  Autor em destaque
-                </Label>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-t bg-background shrink-0">
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => {
-                    setIsSheetOpen(false);
-                    setEditingAuthor(null);
-                  }}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1 bg-amber-600 hover:bg-amber-700"
-                  disabled={createMutation.isPending || updateMutation.isPending || isSavingPhoto}
-                >
-                  {editingAuthor ? 'Guardar' : 'Criar Autor'}
-                </Button>
-              </div>
-            </div>
-          </form>
-        </SheetContent>
-      </Sheet>
+      <AuthorFormSheet
+        author={editingAuthor}
+        open={isSheetOpen}
+        submitting={createMutation.isPending || updateMutation.isPending || isSavingPhoto}
+        onOpenChange={(open) => (open ? setIsSheetOpen(true) : resetSheetState())}
+        onSubmit={handleSubmit}
+        resolvePhotoUrl={resolvePhotoUrl}
+      />
     </div>
-  );
+  )
 }

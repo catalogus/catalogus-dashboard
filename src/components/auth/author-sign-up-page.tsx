@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { getGenderedAuthorType, getAuthorNoun, normalizeAuthorGender, type AuthorGender } from '@/components/dashboard/authors/author-type'
 import {
   buildBridgeTransferUrl,
   resolveReturnBridgeUrl,
@@ -16,6 +17,7 @@ export function AuthorSignUpPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [phone, setPhone] = useState('')
+  const [gender, setGender] = useState<AuthorGender | ''>('')
   const [authorType, setAuthorType] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -34,6 +36,12 @@ export function AuthorSignUpPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setError(null)
+
+    if (!normalizeAuthorGender(gender)) {
+      setError('Selecione o género do autor')
+      return
+    }
+
     setLoading(true)
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -42,8 +50,9 @@ export function AuthorSignUpPage() {
       options: {
         data: {
           name,
-          role: 'author',
-        },
+        role: 'author',
+        gender: normalizeAuthorGender(gender),
+      },
       },
     })
 
@@ -62,6 +71,7 @@ export function AuthorSignUpPage() {
         name,
         email,
         phone: phone || null,
+        gender: normalizeAuthorGender(gender),
         author_type: authorType || null,
       })
 
@@ -89,9 +99,9 @@ export function AuthorSignUpPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-lg">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Registo de Autor</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Registo de {getAuthorNoun(gender)}</CardTitle>
           <CardDescription className="text-center">
-            Crie a sua conta de autor para gerir perfil e conteúdos.
+            {`Crie a sua conta de ${getAuthorNoun(gender).toLowerCase()} para gerir perfil e conteúdos.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -139,22 +149,35 @@ export function AuthorSignUpPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="phone">Telefone (opcional)</Label>
                   <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Tipo de autor (opcional)</Label>
+                  <Label>Género (opcional)</Label>
+                  <Select value={gender || '__empty'} onValueChange={(value) => setGender(value === '__empty' ? '' : value as AuthorGender)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__empty">Não definido</SelectItem>
+                      <SelectItem value="male">Masculino</SelectItem>
+                      <SelectItem value="female">Feminino</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{`Tipo de ${getAuthorNoun(gender).toLowerCase()} (opcional)`}</Label>
                   <Select value={authorType || '__empty'} onValueChange={(value) => setAuthorType(value === '__empty' ? '' : value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecionar" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__empty">Não definido</SelectItem>
-                      <SelectItem value="Escritor">Escritor</SelectItem>
+                      <SelectItem value="Escritor">{getGenderedAuthorType('Escritor', gender)}</SelectItem>
                       <SelectItem value="Poeta">Poeta</SelectItem>
-                      <SelectItem value="Investigador">Investigador</SelectItem>
+                      <SelectItem value="Investigador">{getGenderedAuthorType('Investigador', gender)}</SelectItem>
                       <SelectItem value="Jornalista">Jornalista</SelectItem>
                       <SelectItem value="Outro">Outro</SelectItem>
                     </SelectContent>
@@ -163,7 +186,7 @@ export function AuthorSignUpPage() {
               </div>
 
               <Button type="submit" className="w-full bg-amber-600 hover:bg-amber-700" disabled={loading}>
-                {loading ? 'A criar conta...' : 'Criar conta de autor'}
+                {loading ? 'A criar conta...' : `Criar conta de ${getAuthorNoun(gender).toLowerCase()}`}
               </Button>
 
               <a href={loginHref} className="block text-center text-sm underline text-muted-foreground hover:text-foreground">

@@ -187,6 +187,7 @@ export type Database = {
           created_at: string
           featured: boolean | null
           featured_video: string | null
+          gender: string | null
           id: string
           name: string
           phone: string | null
@@ -213,6 +214,7 @@ export type Database = {
           created_at?: string
           featured?: boolean | null
           featured_video?: string | null
+          gender?: string | null
           id?: string
           name: string
           phone?: string | null
@@ -239,6 +241,7 @@ export type Database = {
           created_at?: string
           featured?: boolean | null
           featured_video?: string | null
+          gender?: string | null
           id?: string
           name?: string
           phone?: string | null
@@ -983,6 +986,7 @@ export type Database = {
           email: string | null
           featured: boolean | null
           featured_video: string | null
+          gender: string | null
           id: string
           must_set_password: boolean
           name: string
@@ -1007,6 +1011,7 @@ export type Database = {
           email?: string | null
           featured?: boolean | null
           featured_video?: string | null
+          gender?: string | null
           id: string
           must_set_password?: boolean
           name: string
@@ -1031,6 +1036,7 @@ export type Database = {
           email?: string | null
           featured?: boolean | null
           featured_video?: string | null
+          gender?: string | null
           id?: string
           must_set_password?: boolean
           name?: string
@@ -1355,6 +1361,7 @@ export type Database = {
           bio: string | null
           birth_date: string | null
           featured_video: string | null
+          gender: string | null
           id: string | null
           name: string | null
           photo_path: string | null
@@ -1372,6 +1379,7 @@ export type Database = {
           bio?: string | null
           birth_date?: string | null
           featured_video?: string | null
+          gender?: string | null
           id?: string | null
           name?: string | null
           photo_path?: string | null
@@ -1389,6 +1397,7 @@ export type Database = {
           bio?: string | null
           birth_date?: string | null
           featured_video?: string | null
+          gender?: string | null
           id?: string | null
           name?: string | null
           photo_path?: string | null

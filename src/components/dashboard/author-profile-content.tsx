@@ -21,6 +21,15 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  getAboutAuthorLabel,
+  getAccountOfAuthorLabel,
+  getAuthorNoun,
+  getGenderedAuthorType,
+  normalizeAuthorGender,
+  normalizeAuthorType,
+  type AuthorGender,
+} from "@/components/dashboard/authors/author-type";
 import { queryKeys } from "@/hooks/supabase/query-keys";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -48,6 +57,7 @@ type FormState = {
   name: string;
   phone: string;
   bio: string;
+  gender: AuthorGender | "";
   author_type: string;
   birth_date: string;
   residence_city: string;
@@ -71,6 +81,7 @@ const defaultForm: FormState = {
   name: "",
   phone: "",
   bio: "",
+  gender: "",
   author_type: "",
   birth_date: "",
   residence_city: "",
@@ -80,19 +91,6 @@ const defaultForm: FormState = {
   photo_path: "",
   social_links: {},
 };
-
-const LEGACY_AUTHOR_TYPE_MAP: Record<string, string> = {
-  writer: "Escritor",
-  poet: "Poeta",
-  researcher: "Investigador",
-  journalist: "Jornalista",
-  other: "Outro",
-};
-
-function normalizeAuthorType(value: string | null | undefined) {
-  if (!value) return "";
-  return LEGACY_AUTHOR_TYPE_MAP[value] ?? value;
-}
 
 function normalizeSocialLinks(value: unknown): SocialLinks {
   if (!value || typeof value !== "object") return {};
@@ -222,6 +220,7 @@ export function AuthorProfileContent() {
       name: profile.name ?? "",
       phone: profile.phone ?? "",
       bio: profile.bio ?? "",
+      gender: normalizeAuthorGender(profile.gender) ?? "",
       author_type: normalizeAuthorType(profile.author_type),
       birth_date: profile.birth_date ?? "",
       residence_city: profile.residence_city ?? "",
@@ -268,6 +267,7 @@ export function AuthorProfileContent() {
       name: profile.name ?? "",
       phone: profile.phone ?? "",
       bio: profile.bio ?? "",
+      gender: normalizeAuthorGender(profile.gender) ?? "",
       author_type: normalizeAuthorType(profile.author_type),
       birth_date: profile.birth_date ?? "",
       residence_city: profile.residence_city ?? "",
@@ -318,6 +318,7 @@ export function AuthorProfileContent() {
           name: values.name,
           phone: values.phone || null,
           bio: values.bio || null,
+          gender: normalizeAuthorGender(values.gender),
           author_type: values.author_type || null,
           birth_date: values.birth_date || null,
           residence_city: values.residence_city || null,
@@ -345,6 +346,7 @@ export function AuthorProfileContent() {
             name: values.name,
             phone: values.phone || null,
             bio: values.bio || null,
+            gender: normalizeAuthorGender(values.gender),
             author_type: values.author_type || null,
             birth_date: values.birth_date || null,
             residence_city: values.residence_city || null,
@@ -400,7 +402,7 @@ export function AuthorProfileContent() {
   }, [linkedAuthorQuery.data]);
 
   const previewPhoto = resolvePhotoUrl(profile?.photo_url, profile?.photo_path);
-  const previewName = profile?.name || linkedAuthorQuery.data?.name || "Autor";
+  const previewName = profile?.name || linkedAuthorQuery.data?.name || getAuthorNoun(profile?.gender);
   const previewSocialLinks = normalizeSocialLinks(profile?.social_links);
   const socialItems = [
     { key: "website", href: previewSocialLinks.website, icon: Globe, label: "Website" },
@@ -427,7 +429,7 @@ export function AuthorProfileContent() {
       <div className="mx-auto w-full max-w-6xl space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Conta de Autor</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{getAccountOfAuthorLabel(profile.gender)}</p>
             <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Meu Perfil</h1>
             <p className="text-sm text-muted-foreground mt-1">Visualize como no site publico e edite no painel lateral.</p>
           </div>
@@ -500,9 +502,9 @@ export function AuthorProfileContent() {
           {previewPhoto && <img src={previewPhoto} alt={previewName} className="absolute inset-0 h-full w-full object-cover" />}
           <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-black/20" />
           <div className="relative z-10 px-6 py-16 sm:px-10">
-            <p className="text-xs uppercase tracking-[0.35em] text-white/70">Perfil de Autor</p>
+            <p className="text-xs uppercase tracking-[0.35em] text-white/70">{`Perfil de ${getAuthorNoun(profile.gender)}`}</p>
             <h2 className="mt-4 text-3xl sm:text-4xl font-semibold leading-tight">{previewName}</h2>
-            {profile.author_type && <p className="mt-4 text-sm uppercase tracking-[0.28em] text-white/70">{profile.author_type}</p>}
+            {profile.author_type && <p className="mt-4 text-sm uppercase tracking-[0.28em] text-white/70">{getGenderedAuthorType(profile.author_type, profile.gender)}</p>}
           </div>
         </section>
 
@@ -568,7 +570,7 @@ export function AuthorProfileContent() {
             {profile.bio && (
               <article className="rounded-xl border bg-card p-6">
                 <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Biografia</p>
-                <h3 className="mt-3 text-2xl font-semibold">Sobre o autor</h3>
+                <h3 className="mt-3 text-2xl font-semibold">{getAboutAuthorLabel(profile.gender)}</h3>
                 <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{profile.bio}</p>
               </article>
             )}
@@ -668,7 +670,25 @@ export function AuthorProfileContent() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="author_type">Tipo de Autor</Label>
+                    <Label htmlFor="gender">Género</Label>
+                    <Select
+                      value={values.gender || "__empty"}
+                      onValueChange={(value) =>
+                        setValues((prev) => ({ ...prev, gender: value === "__empty" ? "" : (value as AuthorGender) }))
+                      }
+                    >
+                      <SelectTrigger id="gender">
+                        <SelectValue placeholder="Seleccionar género" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__empty">Sem género</SelectItem>
+                        <SelectItem value="male">Masculino</SelectItem>
+                        <SelectItem value="female">Feminino</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="author_type">{`Tipo de ${getAuthorNoun(values.gender)}`}</Label>
                     <Select
                       value={values.author_type || "__empty"}
                       onValueChange={(value) =>
@@ -680,9 +700,9 @@ export function AuthorProfileContent() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__empty">Sem tipo</SelectItem>
-                        <SelectItem value="Escritor">Escritor</SelectItem>
+                        <SelectItem value="Escritor">{getGenderedAuthorType("Escritor", values.gender)}</SelectItem>
                         <SelectItem value="Poeta">Poeta</SelectItem>
-                        <SelectItem value="Investigador">Investigador</SelectItem>
+                        <SelectItem value="Investigador">{getGenderedAuthorType("Investigador", values.gender)}</SelectItem>
                         <SelectItem value="Jornalista">Jornalista</SelectItem>
                         <SelectItem value="Outro">Outro</SelectItem>
                       </SelectContent>
