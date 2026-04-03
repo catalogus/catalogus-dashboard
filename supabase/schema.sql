@@ -77,6 +77,7 @@ create table if not exists public.profiles (
   author_gallery jsonb default '[]'::jsonb,
   featured_video text,
   author_type text,
+  gender text check (gender in ('male', 'female')),
   featured boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -154,6 +155,7 @@ create table if not exists public.authors (
   published_works jsonb default '[]'::jsonb,
   author_gallery jsonb default '[]'::jsonb,
   featured_video text,
+  gender text check (gender in ('male', 'female')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
